@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Custom client action for the OWL Purchase Dashboard -->
+    <record id="action_purchase_dashboard" model="ir.actions.client">
+        <field name="name">Purchase Dashboard</field>
+        <field name="tag">ss_purchase_dashboard_tag</field>
+        <field name="target">current</field>
+    </record>
+
+    <!-- Menu Item under Purchase -> Reporting -->
+    <menuitem id="menu_purchase_dashboard"
+              name="Purchase Dashboard"
+              action="action_purchase_dashboard"
+              parent="purchase.purchase_report_main"
+              sequence="3"/>
+</odoo>
