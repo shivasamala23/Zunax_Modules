@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data>
+
+    <!-- ─── Portal Home: Add menu items ────────────────────────────────── -->
+    <template id="portal_my_home_menu_zunax" name="Portal Home: Zunax Menu Items"
+              inherit_id="portal.portal_my_home" customize_show="True">
+      <xpath expr="//div[hasclass('o_portal_docs')]" position="before">
+        <t t-call="portal.portal_docs_entry">
+          <t t-set="title">Customer Ledger</t>
+          <t t-set="url">/my/ledger</t>
+          <t t-set="placeholder_count">ledger_count</t>
+          <t t-set="icon">fa-book</t>
+        </t>
+        <t t-call="portal.portal_docs_entry">
+          <t t-set="title">My Quotations</t>
+          <t t-set="url">/my/quotations</t>
+          <t t-set="placeholder_count">quotation_count</t>
+          <t t-set="icon">fa-file-text-o</t>
+        </t>
+        <t t-call="portal.portal_docs_entry">
+          <t t-set="title">My Orders</t>
+          <t t-set="url">/my/orders</t>
+          <t t-set="placeholder_count">order_count</t>
+          <t t-set="icon">fa-shopping-cart</t>
+        </t>
+      </xpath>
+    </template>
+
+  </data>
+</odoo>

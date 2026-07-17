@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Customer Ledger Page                                               -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <template id="portal_my_ledger" name="My Customer Ledger">
+      <t t-call="portal.portal_layout">
+        <t t-set="breadcrumbs_searchbar" t-value="True"/>
+
+        <t t-call="portal.portal_searchbar">
+          <t t-set="title">Customer Ledger</t>
+        </t>
+
+        <div class="o_portal_wrap">
+          <div class="container py-4">
+
+            <!-- ── Header Banner ── -->
+            <div class="zcp-ledger-header rounded-3 mb-4 p-4 text-white"
+                 style="background: linear-gradient(135deg, #1a237e 0%, #283593 50%, #3949ab 100%);">
+              <div class="row align-items-center">
+                <div class="col-md-8">
+                  <h2 class="mb-1">
+                    <i class="fa fa-book me-2"/>
+                    Customer Ledger
+                  </h2>
+                  <p class="mb-0 opacity-75">
+                    <t t-esc="partner.name"/> — Complete transaction history
+                  </p>
+                </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                  <a href="/my/invoices/excel" class="btn btn-light btn-sm me-2">
+                    <i class="fa fa-download me-1"/>Download Ledger (Excel)
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Summary Cards ── -->
+            <div class="row g-3 mb-4">
+              <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100 text-center py-3">
+                  <div class="card-body">
+                    <div class="text-muted small mb-1"><i class="fa fa-arrow-up text-danger me-1"/>Total Debit</div>
+                    <h5 class="fw-bold text-danger mb-0">
+                      <t t-esc="currency_symbol"/>&#160;<t t-esc="'{:,.2f}'.format(total_debit)"/>
+                    </h5>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100 text-center py-3">
+                  <div class="card-body">
+                    <div class="text-muted small mb-1"><i class="fa fa-arrow-down text-success me-1"/>Total Credit</div>
+                    <h5 class="fw-bold text-success mb-0">
+                      <t t-esc="currency_symbol"/>&#160;<t t-esc="'{:,.2f}'.format(total_credit)"/>
+                    </h5>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100 text-center py-3">
+                  <div class="card-body">
+                    <t t-set="is_receivable" t-value="final_balance >= 0"/>
+                    <div class="text-muted small mb-1">
+                      <i t-attf-class="fa fa-balance-scale me-1 #{'text-success' if is_receivable else 'text-danger'}"/>
+                      Net Balance
+                    </div>
+                    <h5 t-attf-class="fw-bold mb-0 #{'text-success' if is_receivable else 'text-danger'}">
+                      <t t-esc="currency_symbol"/>&#160;<t t-esc="'{:,.2f}'.format(abs(final_balance))"/>
+                      <small><t t-if="not is_receivable"> (Cr)</t></small>
+                    </h5>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Ledger Table ── -->
+            <div class="card border-0 shadow-sm">
+              <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-bold">
+                  <i class="fa fa-list me-2 text-primary"/>Transaction History
+                </h6>
+                <small class="text-muted">
+                  <t t-esc="pager['total']"/> total transactions
+                </small>
+              </div>
+              <div class="card-body p-0">
+                <div class="table-responsive">
+                  <table class="table table-hover mb-0 zcp-ledger-table">
+                    <thead class="table-light">
+                      <tr>
+                        <th class="ps-3">Date</th>
+                        <th>Document</th>
+                        <th>Reference</th>
+                        <th class="text-end">Debit</th>
+                        <th class="text-end">Credit</th>
+                        <th class="text-end pe-3">Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <t t-if="not rows">
+                        <tr>
+                          <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="fa fa-inbox fa-2x mb-2 d-block"/>
+                            No transactions found.
+                          </td>
+                        </tr>
+                      </t>
+                      <t t-foreach="rows" t-as="row">
+                        <tr>
+                          <td class="ps-3 text-nowrap">
+                            <t t-esc="row['line'].date"/>
+                          </td>
+                          <td>
+                            <strong><t t-esc="row['line'].move_id.name or '—'"/></strong>
+                            <div class="text-muted small">
+                              <t t-esc="row['line'].account_id.display_name"/>
+                            </div>
+                          </td>
+                          <td class="text-muted small">
+                            <t t-esc="row['line'].move_id.payment_reference or row['line'].ref or ''"/>
+                          </td>
+                          <td class="text-end">
+                            <t t-if="row['line'].debit > 0">
+                              <span class="text-danger fw-semibold">
+                                <t t-esc="currency_symbol"/>&#160;<t t-esc="'{:,.2f}'.format(row['line'].debit)"/>
+                              </span>
+                            </t>
+                            <t t-else=""><span class="text-muted">—</span></t>
+                          </td>
+                          <td class="text-end">
+                            <t t-if="row['line'].credit > 0">
+                              <span class="text-success fw-semibold">
+                                <t t-esc="currency_symbol"/>&#160;<t t-esc="'{:,.2f}'.format(row['line'].credit)"/>
+                              </span>
+                            </t>
+                            <t t-else=""><span class="text-muted">—</span></t>
+                          </td>
+                          <td class="text-end pe-3">
+                            <span t-attf-class="fw-bold #{'text-success' if row['is_receivable'] else 'text-danger'}">
+                              <t t-esc="currency_symbol"/>&#160;<t t-esc="'{:,.2f}'.format(abs(row['running_balance']))"/>
+                              <t t-if="not row['is_receivable']">
+                                <small class="fw-normal"> Cr</small>
+                              </t>
+                            </span>
+                          </td>
+                        </tr>
+                      </t>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <!-- Pagination -->
+              <div class="card-footer bg-white" t-if="pager['page_count'] > 1">
+                <t t-call="portal.pager"/>
+              </div>
+            </div>
+
+          </div><!-- /container -->
+        </div><!-- /o_portal_wrap -->
+
+        <style>
+          .zcp-ledger-table thead th {
+            font-size: 0.78rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            color: #6c757d;
+            font-weight: 600;
+            border-bottom: 2px solid #dee2e6;
+          }
+          .zcp-ledger-table tbody tr:hover {
+            background-color: #f8f9ff;
+          }
+          .zcp-ledger-table td {
+            vertical-align: middle;
+            font-size: 0.875rem;
+          }
+        </style>
+
+      </t>
+    </template>
+
+  </data>
+</odoo>

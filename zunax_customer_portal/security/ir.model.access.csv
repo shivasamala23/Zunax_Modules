@@ -1,0 +1,8 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_sale_order_portal,Portal Sale Order Read,sale.model_sale_order,base.group_portal,1,0,0,0
+access_sale_order_line_portal,Portal Sale Order Line Read,sale.model_sale_order_line,base.group_portal,1,0,0,0
+access_stock_picking_portal,Portal Stock Picking Read,stock.model_stock_picking,base.group_portal,1,0,0,0
+access_stock_move_portal,Portal Stock Move Read,stock.model_stock_move,base.group_portal,1,0,0,0
+access_product_template_portal_zcp,Portal Product Template Read ZCP,product.model_product_template,base.group_portal,1,0,0,0
+access_product_product_portal_zcp,Portal Product Product Read ZCP,product.model_product_product,base.group_portal,1,0,0,0
+access_uom_portal_zcp,Portal UOM Read ZCP,uom.model_uom_uom,base.group_portal,1,0,0,0

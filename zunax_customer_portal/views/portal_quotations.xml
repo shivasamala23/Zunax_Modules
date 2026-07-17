@@ -1,0 +1,584 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- My Quotations List                                                  -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <template id="portal_my_quotations" name="My Quotations">
+      <t t-call="portal.portal_layout">
+        <t t-set="breadcrumbs_searchbar" t-value="True"/>
+        <t t-call="portal.portal_searchbar">
+          <t t-set="title">My Quotations</t>
+        </t>
+
+        <div class="o_portal_wrap">
+          <div class="container py-4">
+
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <div>
+                <h3 class="mb-1 fw-bold">
+                  <i class="fa fa-file-text-o me-2 text-primary"/>My Quotations
+                </h3>
+                <p class="text-muted mb-0">Pending quotation requests awaiting confirmation</p>
+              </div>
+              <a href="/my/quotations/new" class="btn btn-primary">
+                <i class="fa fa-plus me-2"/>Request New Quote
+              </a>
+            </div>
+
+            <!-- Quotation Table -->
+            <div class="card border-0 shadow-sm">
+              <div class="card-body p-0">
+                <t t-if="not quotations">
+                  <div class="text-center py-5 text-muted">
+                    <i class="fa fa-file-text-o fa-3x mb-3 d-block opacity-50"/>
+                    <h5>No quotations yet</h5>
+                    <p class="mb-3">Start by requesting a new quote from us.</p>
+                    <a href="/my/quotations/new" class="btn btn-outline-primary">
+                      <i class="fa fa-plus me-2"/>Request a Quote
+                    </a>
+                  </div>
+                </t>
+                <t t-else="">
+                  <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                      <thead class="table-light">
+                        <tr>
+                          <th class="ps-3">Quotation #</th>
+                          <th>Date</th>
+                          <th class="text-end">Amount</th>
+                          <th class="text-center">Status</th>
+                          <th class="text-center pe-3">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <t t-foreach="quotations" t-as="order">
+                          <tr>
+                            <td class="ps-3 fw-semibold">
+                              <t t-esc="order.name"/>
+                            </td>
+                            <td class="text-muted">
+                              <t t-esc="order.date_order.strftime('%d %b %Y') if order.date_order else '—'"/>
+                            </td>
+                            <td class="text-end fw-bold">
+                              <t t-esc="order.currency_id.symbol or '₹'"/>&#160;<t t-esc="'{:,.2f}'.format(order.amount_total)"/>
+                            </td>
+                            <td class="text-center">
+                              <t t-if="order.state == 'draft'">
+                                <span class="badge bg-warning text-dark">
+                                  <i class="fa fa-clock-o me-1"/>Draft
+                                </span>
+                              </t>
+                              <t t-elif="order.state == 'sent'">
+                                <span class="badge bg-info">
+                                  <i class="fa fa-paper-plane me-1"/>Sent
+                                </span>
+                              </t>
+                              <t t-else="">
+                                <span class="badge bg-secondary">
+                                  <t t-esc="order.state"/>
+                                </span>
+                              </t>
+                            </td>
+                            <td class="text-center pe-3">
+                              <a t-attf-href="/my/quotations/#{order.id}"
+                                 class="btn btn-outline-primary btn-sm">
+                                <i class="fa fa-eye me-1"/>View
+                              </a>
+                            </td>
+                          </tr>
+                        </t>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="card-footer bg-white" t-if="pager['page_count'] > 1">
+                    <t t-call="portal.pager"/>
+                  </div>
+                </t>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </t>
+    </template>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Quotation Detail                                                    -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <template id="portal_quotation_detail" name="Quotation Detail">
+      <t t-call="portal.portal_layout">
+        <div class="o_portal_wrap">
+          <div class="container py-4">
+
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mb-4">
+              <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/my/home">Home</a></li>
+                <li class="breadcrumb-item"><a href="/my/quotations">Quotations</a></li>
+                <li class="breadcrumb-item active">
+                  <t t-esc="order.name"/>
+                </li>
+              </ol>
+            </nav>
+
+            <!-- Success Banner -->
+            <t t-if="request.params.get('success')">
+              <div class="alert alert-success alert-dismissible fade show" role="alert">
+                <i class="fa fa-check-circle me-2"/>
+                <strong>Quotation submitted successfully!</strong>
+                Your request has been sent. A salesperson will review and confirm it shortly.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"/>
+              </div>
+            </t>
+
+            <!-- Status Timeline -->
+            <div class="card border-0 shadow-sm mb-4">
+              <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+                  <!-- Step: Submitted -->
+                  <div class="text-center zcp-step-item">
+                    <div class="zcp-step-circle bg-success text-white">
+                      <i class="fa fa-check"/>
+                    </div>
+                    <div class="small mt-1 text-success fw-semibold">Submitted</div>
+                  </div>
+                  <div class="flex-grow-1 zcp-step-line"/>
+                  <!-- Step: Under Review -->
+                  <div class="text-center zcp-step-item">
+                    <div t-attf-class="zcp-step-circle #{'bg-primary text-white' if order.state in ['sent'] else 'bg-light text-muted border'}">
+                      <i class="fa fa-search"/>
+                    </div>
+                    <div t-attf-class="small mt-1 fw-semibold #{'text-primary' if order.state in ['sent'] else 'text-muted'}">Under Review</div>
+                  </div>
+                  <div class="flex-grow-1 zcp-step-line"/>
+                  <!-- Step: Confirmed -->
+                  <div class="text-center zcp-step-item">
+                    <div t-attf-class="zcp-step-circle #{'bg-success text-white' if order.state in ['sale', 'done'] else 'bg-light text-muted border'}">
+                      <i class="fa fa-thumbs-up"/>
+                    </div>
+                    <div t-attf-class="small mt-1 fw-semibold #{'text-success' if order.state in ['sale', 'done'] else 'text-muted'}">Confirmed</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Confirmed Order Banner -->
+            <t t-if="order.state in ['sale', 'done']">
+              <div class="alert alert-success d-flex align-items-center mb-4">
+                <i class="fa fa-check-circle fa-2x me-3 text-success"/>
+                <div>
+                  <strong>Order Confirmed!</strong>
+                  Your quotation has been confirmed as order
+                  <strong><t t-esc="order.name"/></strong>.
+                  <a t-attf-href="/my/orders/#{order.id}/track" class="ms-2 btn btn-sm btn-success">
+                    <i class="fa fa-truck me-1"/>Track Shipment
+                  </a>
+                </div>
+              </div>
+            </t>
+
+            <!-- Cancelled Banner -->
+            <t t-if="order.state == 'cancel'">
+              <div class="alert alert-danger d-flex align-items-center mb-4">
+                <i class="fa fa-times-circle fa-2x me-3"/>
+                <div>
+                  <strong>Quotation Cancelled.</strong>
+                  This quotation has been cancelled. Please contact us for more information.
+                </div>
+              </div>
+            </t>
+
+            <!-- Quotation Details Card -->
+            <div class="card border-0 shadow-sm mb-4">
+              <div class="card-header bg-white py-3">
+                <div class="d-flex justify-content-between align-items-center">
+                  <h5 class="mb-0 fw-bold">
+                    <i class="fa fa-file-text-o me-2 text-primary"/>
+                    <t t-esc="order.name"/>
+                  </h5>
+                  <div>
+                    <t t-if="order.state == 'draft'">
+                      <span class="badge bg-warning text-dark fs-6">Draft</span>
+                    </t>
+                    <t t-elif="order.state == 'sent'">
+                      <span class="badge bg-info fs-6">Sent for Review</span>
+                    </t>
+                    <t t-elif="order.state in ['sale', 'done']">
+                      <span class="badge bg-success fs-6">Confirmed</span>
+                    </t>
+                    <t t-elif="order.state == 'cancel'">
+                      <span class="badge bg-danger fs-6">Cancelled</span>
+                    </t>
+                  </div>
+                </div>
+              </div>
+              <div class="card-body">
+                <!-- Meta info -->
+                <div class="row g-3 mb-4">
+                  <div class="col-sm-4">
+                    <div class="text-muted small">Date</div>
+                    <div class="fw-semibold">
+                      <t t-esc="order.date_order.strftime('%d %B %Y') if order.date_order else '—'"/>
+                    </div>
+                  </div>
+                  <div class="col-sm-4">
+                    <div class="text-muted small">Customer</div>
+                    <div class="fw-semibold"><t t-esc="order.partner_id.name"/></div>
+                  </div>
+                  <div class="col-sm-4">
+                    <div class="text-muted small">Source</div>
+                    <div class="fw-semibold"><t t-esc="order.origin or 'Portal Request'"/></div>
+                  </div>
+                </div>
+
+                <!-- Order Lines -->
+                <div class="table-responsive">
+                  <table class="table table-sm">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Product</th>
+                        <th class="text-center">Qty</th>
+                        <th class="text-end">Unit Price</th>
+                        <th class="text-end">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <t t-foreach="order.order_line" t-as="line">
+                        <tr>
+                          <td>
+                            <div class="fw-semibold"><t t-esc="line.product_id.display_name"/></div>
+                            <div class="text-muted small" t-if="line.name and line.name != line.product_id.display_name">
+                              <t t-esc="line.name"/>
+                            </div>
+                          </td>
+                          <td class="text-center">
+                            <t t-esc="line.product_uom_qty"/>
+                            <small class="text-muted"><t t-esc="line.product_uom.name"/></small>
+                          </td>
+                          <td class="text-end">
+                            <t t-esc="currency_symbol"/>&#160;<t t-esc="'{:,.2f}'.format(line.price_unit)"/>
+                          </td>
+                          <td class="text-end fw-semibold">
+                            <t t-esc="currency_symbol"/>&#160;<t t-esc="'{:,.2f}'.format(line.price_subtotal)"/>
+                          </td>
+                        </tr>
+                      </t>
+                    </tbody>
+                    <tfoot>
+                      <tr class="table-light">
+                        <td colspan="3" class="text-end fw-bold">Total:</td>
+                        <td class="text-end fw-bold fs-5">
+                          <t t-esc="currency_symbol"/>&#160;<t t-esc="'{:,.2f}'.format(order.amount_total)"/>
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                <!-- Customer Note -->
+                <t t-if="order.portal_note">
+                  <div class="mt-3 p-3 bg-light rounded">
+                    <div class="text-muted small mb-1">
+                      <i class="fa fa-comment me-1"/>Your Note:
+                    </div>
+                    <p class="mb-0"><t t-esc="order.portal_note"/></p>
+                  </div>
+                </t>
+              </div>
+            </div>
+
+            <div class="d-flex gap-2">
+              <a href="/my/quotations" class="btn btn-outline-secondary">
+                <i class="fa fa-arrow-left me-1"/>Back to Quotations
+              </a>
+              <t t-if="order.state in ['sale', 'done']">
+                <a t-attf-href="/my/orders/#{order.id}/track" class="btn btn-success">
+                  <i class="fa fa-truck me-1"/>Track Shipment
+                </a>
+              </t>
+            </div>
+
+          </div>
+        </div>
+
+        <style>
+          .zcp-step-circle {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            margin: 0 auto;
+            border: 2px solid transparent;
+          }
+          .zcp-step-item { min-width: 80px; }
+          .zcp-step-line {
+            height: 2px;
+            background: #dee2e6;
+            min-width: 40px;
+          }
+        </style>
+      </t>
+    </template>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- New Quotation Request Form                                          -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <template id="portal_new_quotation" name="Request a Quote">
+      <t t-call="portal.portal_layout">
+        <div class="o_portal_wrap">
+          <div class="container py-4">
+
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mb-4">
+              <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/my/home">Home</a></li>
+                <li class="breadcrumb-item"><a href="/my/quotations">Quotations</a></li>
+                <li class="breadcrumb-item active">New Request</li>
+              </ol>
+            </nav>
+
+            <!-- Error Banner -->
+            <t t-if="error == 'no_products'">
+              <div class="alert alert-danger alert-dismissible fade show">
+                <i class="fa fa-exclamation-triangle me-2"/>
+                Please add at least one product to your request.
+                <button type="button" class="btn-close" data-bs-dismiss="alert"/>
+              </div>
+            </t>
+
+            <!-- Form Card -->
+            <div class="card border-0 shadow-sm">
+              <div class="card-header py-3"
+                   style="background: linear-gradient(135deg, #1565c0, #1976d2);">
+                <h5 class="mb-0 text-white fw-bold">
+                  <i class="fa fa-shopping-cart me-2"/>Request a Quotation
+                </h5>
+              </div>
+              <div class="card-body p-4">
+
+                <form action="/my/quotations/submit" method="post"
+                      id="portal_quotation_form" class="needs-validation">
+                  <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+
+                  <p class="text-muted mb-4">
+                    Fill in the products you wish to order. Our team will review your request
+                    and confirm the quotation.
+                  </p>
+
+                  <!-- Product list as hidden data for JS -->
+                  <script id="zcp-product-data" type="application/json">
+                    <t t-esc="'['"/>
+                    <t t-foreach="products" t-as="prod">
+                      <t t-set="vid" t-value="prod.product_variant_ids[0].id if prod.product_variant_ids else prod.id"/>
+                      <t t-esc="'{' + '&quot;id&quot;:' + str(vid) + ',&quot;name&quot;:&quot;' + (prod.display_name or '').replace('&quot;', '') + '&quot;' + '}'"/>
+                      <t t-if="not prod_last">,</t>
+                    </t>
+                    <t t-esc="']'"/>
+                  </script>
+
+                  <!-- ── Product Lines container ── -->
+                  <div id="zcp-order-lines">
+                    <!-- Row 1 (always shown, no JS needed) -->
+                    <div class="zcp-order-line row g-2 mb-3 align-items-end" data-line="1">
+                      <div class="col-md-1 text-center">
+                        <label class="form-label text-muted small">Line</label>
+                        <div class="fw-bold text-muted pt-2">1</div>
+                      </div>
+                      <div class="col-md-7">
+                        <label class="form-label fw-semibold">
+                          Product <span class="text-danger">*</span>
+                        </label>
+                        <select name="product_id_1" id="product_id_1"
+                                class="form-select" required="required">
+                          <option value="">— Select a product —</option>
+                          <t t-foreach="products" t-as="prod">
+                            <option t-att-value="prod.product_variant_ids[0].id if prod.product_variant_ids else prod.id"
+                                    t-esc="prod.display_name"/>
+                          </t>
+                        </select>
+                      </div>
+                      <div class="col-md-3">
+                        <label class="form-label fw-semibold">
+                          Quantity <span class="text-danger">*</span>
+                        </label>
+                        <input type="number" name="qty_1" id="qty_1"
+                               class="form-control" placeholder="1"
+                               min="0.01" step="0.01" value="1" required="required"/>
+                      </div>
+                      <div class="col-md-1 text-center">
+                        <button type="button" class="btn btn-outline-danger btn-sm zcp-remove-line"
+                                style="display:none;" title="Remove line">
+                          <i class="fa fa-trash"/>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Add Line Button -->
+                  <button type="button" id="zcp-add-line"
+                          class="btn btn-outline-secondary btn-sm mb-4">
+                    <i class="fa fa-plus me-1"/>Add Another Product
+                  </button>
+
+                  <hr/>
+
+                  <!-- ── Customer Note ── -->
+                  <div class="mb-4">
+                    <label class="form-label fw-semibold">
+                      <i class="fa fa-comment me-1 text-muted"/>Additional Notes / Remarks
+                    </label>
+                    <textarea name="portal_note" class="form-control" rows="3"
+                              placeholder="Delivery instructions, special requirements, etc."/>
+                  </div>
+
+                  <!-- ── Submit ── -->
+                  <div class="d-flex gap-2 justify-content-end">
+                    <a href="/my/quotations" class="btn btn-outline-secondary">
+                      <i class="fa fa-times me-1"/>Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary px-4">
+                      <i class="fa fa-paper-plane me-2"/>Submit Request
+                    </button>
+                  </div>
+
+                </form>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ── JS: Dynamic add/remove product lines ── -->
+        <script type="text/javascript"><![CDATA[
+(function () {
+  'use strict';
+  var lineCount = 1;
+
+  // Load product list from embedded JSON
+  var productData = [];
+  try {
+    var el = document.getElementById('zcp-product-data');
+    if (el) productData = JSON.parse(el.textContent || el.innerText || '[]');
+  } catch(e) { productData = []; }
+
+  function buildSelectOptions() {
+    var html = '<option value="">— Select a product —</option>';
+    productData.forEach(function(p) {
+      html += '<option value="' + p.id + '">' + p.name + '</option>';
+    });
+    return html;
+  }
+
+  function updateRemoveButtons() {
+    var lines = document.querySelectorAll('.zcp-order-line');
+    lines.forEach(function(line) {
+      var btn = line.querySelector('.zcp-remove-line');
+      if (btn) btn.style.display = lines.length > 1 ? '' : 'none';
+    });
+  }
+
+  function addLine() {
+    lineCount++;
+    var container = document.getElementById('zcp-order-lines');
+
+    var row = document.createElement('div');
+    row.className = 'zcp-order-line row g-2 mb-3 align-items-end';
+    row.setAttribute('data-line', lineCount);
+
+    // col1: line number
+    var c1 = document.createElement('div');
+    c1.className = 'col-md-1 text-center';
+    var lbl1 = document.createElement('label');
+    lbl1.className = 'form-label text-muted small';
+    lbl1.textContent = 'Line';
+    var num = document.createElement('div');
+    num.className = 'fw-bold text-muted pt-2';
+    num.textContent = lineCount;
+    c1.appendChild(lbl1);
+    c1.appendChild(num);
+
+    // col2: product select
+    var c2 = document.createElement('div');
+    c2.className = 'col-md-7';
+    var lbl2 = document.createElement('label');
+    lbl2.className = 'form-label fw-semibold';
+    lbl2.textContent = 'Product ';
+    var star2 = document.createElement('span');
+    star2.className = 'text-danger';
+    star2.textContent = '*';
+    lbl2.appendChild(star2);
+    var sel = document.createElement('select');
+    sel.name = 'product_id_' + lineCount;
+    sel.id = 'product_id_' + lineCount;
+    sel.className = 'form-select';
+    sel.required = true;
+    sel.innerHTML = buildSelectOptions();
+    c2.appendChild(lbl2);
+    c2.appendChild(sel);
+
+    // col3: quantity
+    var c3 = document.createElement('div');
+    c3.className = 'col-md-3';
+    var lbl3 = document.createElement('label');
+    lbl3.className = 'form-label fw-semibold';
+    lbl3.textContent = 'Quantity ';
+    var star3 = document.createElement('span');
+    star3.className = 'text-danger';
+    star3.textContent = '*';
+    lbl3.appendChild(star3);
+    var inp = document.createElement('input');
+    inp.type = 'number';
+    inp.name = 'qty_' + lineCount;
+    inp.id = 'qty_' + lineCount;
+    inp.className = 'form-control';
+    inp.placeholder = '1';
+    inp.setAttribute('min', '0.01');
+    inp.setAttribute('step', '0.01');
+    inp.value = '1';
+    inp.required = true;
+    c3.appendChild(lbl3);
+    c3.appendChild(inp);
+
+    // col4: remove
+    var c4 = document.createElement('div');
+    c4.className = 'col-md-1 text-center';
+    var rmBtn = document.createElement('button');
+    rmBtn.type = 'button';
+    rmBtn.className = 'btn btn-outline-danger btn-sm zcp-remove-line';
+    rmBtn.title = 'Remove line';
+    var icon = document.createElement('i');
+    icon.className = 'fa fa-trash';
+    rmBtn.appendChild(icon);
+    rmBtn.addEventListener('click', function() {
+      row.remove();
+      updateRemoveButtons();
+    });
+    c4.appendChild(rmBtn);
+
+    row.appendChild(c1);
+    row.appendChild(c2);
+    row.appendChild(c3);
+    row.appendChild(c4);
+    container.appendChild(row);
+    updateRemoveButtons();
+  }
+
+  var addBtn = document.getElementById('zcp-add-line');
+  if (addBtn) addBtn.addEventListener('click', addLine);
+
+  updateRemoveButtons();
+})();
+        ]]></script>
+
+      </t>
+    </template>
+
+  </data>
+</odoo>

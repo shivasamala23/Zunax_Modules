@@ -1,0 +1,443 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <data>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- My Orders List                                                      -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <template id="portal_my_orders" name="My Orders">
+      <t t-call="portal.portal_layout">
+        <t t-set="breadcrumbs_searchbar" t-value="True"/>
+        <t t-call="portal.portal_searchbar">
+          <t t-set="title">My Orders</t>
+        </t>
+
+        <div class="o_portal_wrap">
+          <div class="container py-4">
+
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <div>
+                <h3 class="mb-1 fw-bold">
+                  <i class="fa fa-shopping-cart me-2 text-success"/>My Orders
+                </h3>
+                <p class="text-muted mb-0">Confirmed sale orders and their delivery status</p>
+              </div>
+              <a href="/my/quotations/new" class="btn btn-outline-primary btn-sm">
+                <i class="fa fa-plus me-1"/>New Request
+              </a>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+              <div class="card-body p-0">
+                <t t-if="not orders">
+                  <div class="text-center py-5 text-muted">
+                    <i class="fa fa-shopping-cart fa-3x mb-3 d-block opacity-50"/>
+                    <h5>No confirmed orders yet</h5>
+                    <p>Submit a quotation request and it will appear here once confirmed.</p>
+                  </div>
+                </t>
+                <t t-else="">
+                  <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                      <thead class="table-light">
+                        <tr>
+                          <th class="ps-3">Order #</th>
+                          <th>Date</th>
+                          <th class="text-end">Amount</th>
+                          <th class="text-center">Order Status</th>
+                          <th class="text-center">Shipment</th>
+                          <th class="text-center pe-3">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <t t-foreach="orders" t-as="order">
+                          <tr>
+                            <td class="ps-3 fw-semibold">
+                              <t t-esc="order.name"/>
+                            </td>
+                            <td class="text-muted">
+                              <t t-esc="order.date_order.strftime('%d %b %Y') if order.date_order else '—'"/>
+                            </td>
+                            <td class="text-end fw-bold">
+                              <t t-esc="order.currency_id.symbol or '₹'"/>&#160;<t t-esc="'{:,.2f}'.format(order.amount_total)"/>
+                            </td>
+                            <td class="text-center">
+                              <t t-if="order.state == 'sale'">
+                                <span class="badge bg-primary">
+                                  <i class="fa fa-check me-1"/>Confirmed
+                                </span>
+                              </t>
+                              <t t-elif="order.state == 'done'">
+                                <span class="badge bg-success">
+                                  <i class="fa fa-check-circle me-1"/>Done
+                                </span>
+                              </t>
+                            </td>
+                            <td class="text-center">
+                              <t t-set="ship_status" t-value="order.portal_shipment_status"/>
+                              <t t-if="ship_status == 'done'">
+                                <span class="badge bg-success">
+                                  <i class="fa fa-truck me-1"/>Delivered
+                                </span>
+                              </t>
+                              <t t-elif="ship_status == 'ready'">
+                                <span class="badge bg-info">
+                                  <i class="fa fa-box me-1"/>Ready to Ship
+                                </span>
+                              </t>
+                              <t t-elif="ship_status == 'no_shipment'">
+                                <span class="badge bg-light text-muted border">
+                                  No Shipment
+                                </span>
+                              </t>
+                              <t t-else="">
+                                <span class="badge bg-warning text-dark">
+                                  <i class="fa fa-clock-o me-1"/>In Progress
+                                </span>
+                              </t>
+                            </td>
+                            <td class="text-center pe-3">
+                              <a t-attf-href="/my/orders/#{order.id}/track"
+                                 class="btn btn-outline-success btn-sm">
+                                <i class="fa fa-map-marker me-1"/>Track
+                              </a>
+                            </td>
+                          </tr>
+                        </t>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="card-footer bg-white" t-if="pager['page_count'] > 1">
+                    <t t-call="portal.pager"/>
+                  </div>
+                </t>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </t>
+    </template>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- Order Tracking Detail                                               -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <template id="portal_order_track" name="Order Tracking">
+      <t t-call="portal.portal_layout">
+        <div class="o_portal_wrap">
+          <div class="container py-4">
+
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mb-4">
+              <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/my/home">Home</a></li>
+                <li class="breadcrumb-item"><a href="/my/orders">Orders</a></li>
+                <li class="breadcrumb-item active"><t t-esc="order.name"/></li>
+              </ol>
+            </nav>
+
+            <!-- ── Status Header ── -->
+            <div class="zcp-track-header rounded-3 mb-4 p-4 text-white"
+                 style="background: linear-gradient(135deg, #1b5e20 0%, #2e7d32 60%, #388e3c 100%);">
+              <div class="row align-items-center">
+                <div class="col-md-8">
+                  <h3 class="mb-1 fw-bold">
+                    <i class="fa fa-truck me-2"/>Order Tracking
+                  </h3>
+                  <p class="mb-0 opacity-75">
+                    <strong><t t-esc="order.name"/></strong> —
+                    <t t-esc="order.date_order.strftime('%d %B %Y') if order.date_order else ''"/>
+                  </p>
+                </div>
+                <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                  <t t-set="ship_status" t-value="order.portal_shipment_status"/>
+                  <t t-if="ship_status == 'done'">
+                    <span class="badge bg-light text-success fs-6 py-2 px-3">
+                      <i class="fa fa-check-circle me-1"/>Delivered
+                    </span>
+                  </t>
+                  <t t-elif="ship_status == 'ready'">
+                    <span class="badge bg-light text-primary fs-6 py-2 px-3">
+                      <i class="fa fa-box me-1"/>Ready to Ship
+                    </span>
+                  </t>
+                  <t t-elif="ship_status == 'no_shipment'">
+                    <span class="badge bg-light text-muted fs-6 py-2 px-3">
+                      No Delivery
+                    </span>
+                  </t>
+                  <t t-else="">
+                    <span class="badge bg-light text-warning fs-6 py-2 px-3">
+                      <i class="fa fa-clock-o me-1"/>In Progress
+                    </span>
+                  </t>
+                </div>
+              </div>
+            </div>
+
+            <!-- ── Order + Shipment Timeline ── -->
+            <div class="row g-4">
+
+              <!-- Left: Order Summary -->
+              <div class="col-lg-4">
+                <div class="card border-0 shadow-sm h-100">
+                  <div class="card-header bg-white py-3">
+                    <h6 class="mb-0 fw-bold">
+                      <i class="fa fa-file-text me-2 text-primary"/>Order Summary
+                    </h6>
+                  </div>
+                  <div class="card-body">
+                    <div class="mb-3">
+                      <div class="text-muted small">Order Reference</div>
+                      <div class="fw-semibold"><t t-esc="order.name"/></div>
+                    </div>
+                    <div class="mb-3">
+                      <div class="text-muted small">Order Date</div>
+                      <div class="fw-semibold">
+                        <t t-esc="order.date_order.strftime('%d %B %Y') if order.date_order else '—'"/>
+                      </div>
+                    </div>
+                    <div class="mb-3">
+                      <div class="text-muted small">Delivery Address</div>
+                      <div class="fw-semibold">
+                        <t t-esc="order.partner_shipping_id.display_name if order.partner_shipping_id else order.partner_id.display_name"/>
+                      </div>
+                    </div>
+                    <div class="mb-3">
+                      <div class="text-muted small">Order Total</div>
+                      <div class="fw-bold fs-5 text-success">
+                        <t t-esc="currency_symbol"/>&#160;<t t-esc="'{:,.2f}'.format(order.amount_total)"/>
+                      </div>
+                    </div>
+
+                    <hr/>
+                    <h6 class="text-muted small fw-semibold mb-3">PRODUCTS ORDERED</h6>
+                    <t t-foreach="order.order_line" t-as="line">
+                      <div class="d-flex justify-content-between mb-2">
+                        <div>
+                          <div class="fw-semibold small"><t t-esc="line.product_id.display_name"/></div>
+                          <div class="text-muted" style="font-size:0.78rem;">
+                            Qty: <t t-esc="line.product_uom_qty"/>
+                            <t t-esc="line.product_uom.name"/>
+                          </div>
+                        </div>
+                        <div class="text-end small fw-semibold">
+                          <t t-esc="currency_symbol"/>&#160;<t t-esc="'{:,.2f}'.format(line.price_subtotal)"/>
+                        </div>
+                      </div>
+                    </t>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right: Shipment Tracking -->
+              <div class="col-lg-8">
+                <div class="card border-0 shadow-sm mb-4">
+                  <div class="card-header bg-white py-3">
+                    <h6 class="mb-0 fw-bold">
+                      <i class="fa fa-map-marker me-2 text-success"/>Delivery Tracking
+                    </h6>
+                  </div>
+                  <div class="card-body">
+
+                    <!-- Shipment Timeline -->
+                    <div class="zcp-timeline mb-4">
+
+                      <!-- Step 1: Order Confirmed -->
+                      <div class="zcp-timeline-item">
+                        <div class="zcp-timeline-dot bg-success">
+                          <i class="fa fa-check"/>
+                        </div>
+                        <div class="zcp-timeline-content">
+                          <div class="fw-semibold text-success">Order Confirmed</div>
+                          <div class="text-muted small">
+                            <t t-esc="order.date_order.strftime('%d %b %Y, %I:%M %p') if order.date_order else ''"/>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Pickings Timeline -->
+                      <t t-if="not pickings">
+                        <div class="zcp-timeline-item">
+                          <div class="zcp-timeline-dot bg-light border text-muted">
+                            <i class="fa fa-truck"/>
+                          </div>
+                          <div class="zcp-timeline-content">
+                            <div class="fw-semibold text-muted">Delivery Not Yet Created</div>
+                            <div class="text-muted small">Warehouse is preparing your order</div>
+                          </div>
+                        </div>
+                      </t>
+
+                      <t t-foreach="pickings" t-as="picking">
+                        <div class="zcp-timeline-item">
+                          <div t-attf-class="zcp-timeline-dot #{'bg-success' if picking.state == 'done' else ('bg-primary' if picking.state == 'assigned' else 'bg-warning')}">
+                            <i t-attf-class="fa #{'fa-check' if picking.state == 'done' else ('fa-truck' if picking.state == 'assigned' else 'fa-clock-o')}"/>
+                          </div>
+                          <div class="zcp-timeline-content">
+                            <div class="d-flex justify-content-between align-items-start">
+                              <div>
+                                <div class="fw-semibold">
+                                  <t t-esc="picking.name"/>
+                                </div>
+                                <div class="text-muted small">
+                                  <t t-if="picking.state == 'done'">
+                                    Delivered on
+                                    <t t-esc="picking.date_done.strftime('%d %b %Y') if picking.date_done else '—'"/>
+                                  </t>
+                                  <t t-elif="picking.state == 'assigned'">Ready for dispatch</t>
+                                  <t t-elif="picking.state == 'confirmed'">Awaiting stock availability</t>
+                                  <t t-else=""><t t-esc="picking.state"/></t>
+                                </div>
+                              </div>
+                              <div>
+                                <t t-if="picking.state == 'done'">
+                                  <span class="badge bg-success">Delivered</span>
+                                </t>
+                                <t t-elif="picking.state == 'assigned'">
+                                  <span class="badge bg-primary">Ready</span>
+                                </t>
+                                <t t-elif="picking.state in ['confirmed', 'waiting']">
+                                  <span class="badge bg-warning text-dark">Waiting</span>
+                                </t>
+                                <t t-else="">
+                                  <span class="badge bg-secondary"><t t-esc="picking.state"/></span>
+                                </t>
+                              </div>
+                            </div>
+
+                            <!-- Carrier & Tracking (only shown if delivery module installed) -->
+                            <t t-set="carrier_name" t-value="picking.carrier_id.name if hasattr(picking, 'carrier_id') and picking.carrier_id else False"/>
+                            <t t-if="carrier_name">
+                              <div class="mt-2 p-2 bg-light rounded d-flex align-items-center gap-2">
+                                <i class="fa fa-truck text-primary"/>
+                                <div>
+                                  <div class="small fw-semibold">
+                                    <t t-esc="carrier_name"/>
+                                  </div>
+                                  <t t-set="tracking_ref" t-value="picking.carrier_tracking_ref if hasattr(picking, 'carrier_tracking_ref') else False"/>
+                                  <t t-if="tracking_ref">
+                                    <div class="text-muted" style="font-size:0.78rem;">
+                                      Tracking: <t t-esc="tracking_ref"/>
+                                    </div>
+                                  </t>
+                                </div>
+                                <t t-set="tracking_url" t-value="picking.carrier_tracking_url if hasattr(picking, 'carrier_tracking_url') else False"/>
+                                <t t-if="tracking_url">
+                                  <a t-att-href="tracking_url"
+                                     target="_blank" class="btn btn-sm btn-outline-primary ms-auto">
+                                    <i class="fa fa-external-link me-1"/>Track Package
+                                  </a>
+                                </t>
+                              </div>
+                            </t>
+
+
+                            <!-- Move lines (products in this shipment) -->
+                            <t t-if="picking.move_ids">
+                              <div class="mt-2">
+                                <table class="table table-sm table-borderless mb-0"
+                                       style="font-size:0.82rem;">
+                                  <thead>
+                                    <tr class="text-muted">
+                                      <th>Product</th>
+                                      <th class="text-center">Qty Demanded</th>
+                                      <th class="text-center">Qty Done</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <t t-foreach="picking.move_ids" t-as="move">
+                                      <tr>
+                                        <td><t t-esc="move.product_id.display_name"/></td>
+                                        <td class="text-center">
+                                          <t t-esc="move.product_uom_qty"/>
+                                          <t t-esc="move.product_uom.name"/>
+                                        </td>
+                                        <td class="text-center">
+                                          <t t-if="move.state == 'done'">
+                                            <span class="text-success fw-semibold">
+                                              <t t-esc="move.quantity"/>
+                                              <t t-esc="move.product_uom.name"/>
+                                            </span>
+                                          </t>
+                                          <t t-else="">
+                                            <span class="text-muted">—</span>
+                                          </t>
+                                        </td>
+                                      </tr>
+                                    </t>
+                                  </tbody>
+                                </table>
+                              </div>
+                            </t>
+
+                          </div>
+                        </div>
+                      </t>
+
+                    </div><!-- /zcp-timeline -->
+
+                  </div>
+                </div>
+
+                <!-- Back Buttons -->
+                <div class="d-flex gap-2">
+                  <a href="/my/orders" class="btn btn-outline-secondary">
+                    <i class="fa fa-arrow-left me-1"/>Back to Orders
+                  </a>
+                  <a t-attf-href="/my/quotations/#{order.id}" class="btn btn-outline-primary">
+                    <i class="fa fa-file-text me-1"/>View Quotation
+                  </a>
+                </div>
+
+              </div><!-- /col-lg-8 -->
+            </div><!-- /row -->
+
+          </div><!-- /container -->
+        </div><!-- /o_portal_wrap -->
+
+        <style>
+          /* ── Tracking Timeline ── */
+          .zcp-timeline {
+            position: relative;
+            padding-left: 0;
+          }
+          .zcp-timeline-item {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            position: relative;
+          }
+          .zcp-timeline-item::before {
+            content: '';
+            position: absolute;
+            left: 19px;
+            top: 40px;
+            bottom: -12px;
+            width: 2px;
+            background: #dee2e6;
+          }
+          .zcp-timeline-item:last-child::before { display: none; }
+          .zcp-timeline-dot {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 15px;
+            color: white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+          }
+          .zcp-timeline-content {
+            flex: 1;
+            padding-top: 6px;
+          }
+        </style>
+
+      </t>
+    </template>
+
+  </data>
+</odoo>
