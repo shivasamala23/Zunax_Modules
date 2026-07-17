@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_purchase_dashboard,purchase.dashboard,model_purchase_dashboard,base.group_user,1,1,1,1
+access_purchase_savings_report,purchase.savings.report,model_purchase_savings_report,base.group_user,1,0,0,0
+
