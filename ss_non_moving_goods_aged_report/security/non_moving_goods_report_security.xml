@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="stock_non_moving_goods_report_multi_company_rule" model="ir.rule">
+        <field name="name">Stock Non-Moving Goods Report Multi-Company</field>
+        <field name="model_id" ref="model_stock_non_moving_goods_report"/>
+        <field name="global" eval="True"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
+</odoo>

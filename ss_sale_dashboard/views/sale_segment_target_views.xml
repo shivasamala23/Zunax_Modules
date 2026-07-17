@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- ════════════════════════════════════════════════════════════════════
+         Sale Segment Target — Views & Menu
+         Allows managers to enter AOP (Annual Operating Plan) unit-count
+         targets per product segment × branch × month.
+         ════════════════════════════════════════════════════════════════════ -->
+
+    <!-- List view (editable inline) -->
+    <record id="view_sale_segment_target_list" model="ir.ui.view">
+        <field name="name">sale.segment.target.list</field>
+        <field name="model">sale.segment.target</field>
+        <field name="arch" type="xml">
+            <list string="Segment AOP Targets" editable="top">
+                <field name="year"/>
+                <field name="month"/>
+                <field name="segment"/>
+                <field name="branch_name"/>
+                <field name="target_qty" sum="Total AOP (Units)"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Form view -->
+    <record id="view_sale_segment_target_form" model="ir.ui.view">
+        <field name="name">sale.segment.target.form</field>
+        <field name="model">sale.segment.target</field>
+        <field name="arch" type="xml">
+            <form string="Segment AOP Target">
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group string="Period">
+                            <field name="year"/>
+                            <field name="month"/>
+                        </group>
+                        <group string="Segment &amp; Branch">
+                            <field name="segment"/>
+                            <field name="branch_name"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Target">
+                            <field name="target_qty" widget="integer"/>
+                        </group>
+                        <group string="Company">
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Search view -->
+    <record id="view_sale_segment_target_search" model="ir.ui.view">
+        <field name="name">sale.segment.target.search</field>
+        <field name="model">sale.segment.target</field>
+        <field name="arch" type="xml">
+            <search string="Search Segment Targets">
+                <field name="branch_name" string="Branch"/>
+                <field name="segment"/>
+                <field name="year"/>
+                <field name="month"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <separator/>
+                <group expand="1" string="Group By">
+                    <filter string="Year"    name="group_by_year"    context="{'group_by': 'year'}"/>
+                    <filter string="Month"   name="group_by_month"   context="{'group_by': 'month'}"/>
+                    <filter string="Segment" name="group_by_segment" context="{'group_by': 'segment'}"/>
+                    <filter string="Branch"  name="group_by_branch"  context="{'group_by': 'branch_name'}"/>
+                    <filter string="Company" name="group_by_company" context="{'group_by': 'company_id'}"
+                            groups="base.group_multi_company"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- Window action -->
+    <record id="action_sale_segment_target" model="ir.actions.act_window">
+        <field name="name">Segment AOP Targets</field>
+        <field name="res_model">sale.segment.target</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_sale_segment_target_search"/>
+        <field name="context">{'search_default_group_by_year': 1, 'search_default_group_by_segment': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Define your Monthly AOP Targets here.
+            </p>
+            <p>
+                Enter one row per <strong>Segment + Branch + Month</strong>.
+                The Segment Performance dashboard will compare these targets
+                against actual confirmed sale order quantities.
+            </p>
+            <p>
+                Tip: You can use <strong>Favorites → Import Records</strong>
+                to bulk-import from your existing Excel files.
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu item under Sales → Configuration -->
+    <menuitem id="menu_sale_segment_target"
+              name="Segment AOP Targets"
+              action="action_sale_segment_target"
+              parent="sale.menu_sale_config"
+              sequence="25"/>
+</odoo>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Custom client action for the OWL Inventory Dashboard -->
+    <record id="action_inventory_dashboard" model="ir.actions.client">
+        <field name="name">Inventory Dashboard</field>
+        <field name="tag">ss_inventory_dashboard_tag</field>
+        <field name="target">current</field>
+    </record>
+
+    <!-- Inherited List View for stock.move to show Lot/Serial numbers -->
+    <record id="view_move_tree_inherit_ss_inventory_dashboard" model="ir.ui.view">
+        <field name="name">stock.move.list.inherit.ss.inventory.dashboard</field>
+        <field name="model">stock.move</field>
+        <field name="inherit_id" ref="stock.view_move_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='reference']" position="after">
+                <field name="lot_ids" widget="many2many_tags" optional="show"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- Menu Item under Inventory -> Reporting -->
+    <menuitem id="menu_inventory_dashboard"
+              name="Inventory Dashboard"
+              action="action_inventory_dashboard"
+              parent="stock.menu_warehouse_report"
+              sequence="1"/>
+</odoo>

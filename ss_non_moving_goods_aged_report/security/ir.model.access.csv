@@ -1,0 +1,3 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_stock_non_moving_goods_report_stock_user,stock.non.moving.goods.report,model_stock_non_moving_goods_report,stock.group_stock_user,1,0,0,0
+access_stock_non_moving_goods_report_stock_manager,stock.non.moving.goods.report,model_stock_non_moving_goods_report,stock.group_stock_manager,1,1,1,1

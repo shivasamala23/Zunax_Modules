@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Window Action -->
+    <record id="action_stock_non_moving_goods_report" model="ir.actions.act_window">
+        <field name="name">Non-Moving Goods Report</field>
+        <field name="res_model">stock.non.moving.goods.report</field>
+        <field name="view_mode">list,pivot,graph</field>
+        <field name="context">{
+            'search_default_group_by_age_bucket': 1,
+        }</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Non-Moving Goods Aged Report
+            </p>
+            <p>
+                This report identifies inventory products that have not been moved (no outgoing stock moves) for a period of time, categorized by aging buckets.
+            </p>
+        </field>
+    </record>
+
+    <!-- Menu Item -->
+    <menuitem id="menu_stock_non_moving_goods_report"
+              name="Non-Moving Goods Report"
+              parent="stock.menu_warehouse_report"
+              action="action_stock_non_moving_goods_report"
+              sequence="150"/>
+
+    <!-- List/Tree View -->
+    <record id="view_stock_non_moving_goods_report_list" model="ir.ui.view">
+        <field name="name">stock.non.moving.goods.report.list</field>
+        <field name="model">stock.non.moving.goods.report</field>
+        <field name="arch" type="xml">
+            <list string="Non-Moving Goods" create="false" edit="false" delete="false">
+                <field name="product_id" widget="many2one_avatar"/>
+                <field name="lot_id" optional="show"/>
+                <field name="categ_id" optional="show"/>
+                <field name="warehouse_id" optional="show"/>
+                <field name="location_id" optional="show"/>
+                <field name="company_id" optional="hide" groups="base.group_multi_company"/>
+                <field name="qty_on_hand" sum="Total Quantity"/>
+                <field name="standard_price" widget="monetary"/>
+                <field name="stock_value" sum="Total Stock Value" widget="monetary"/>
+                <field name="last_outgoing_move_date" widget="datetime" optional="show"/>
+                <field name="non_moving_days" class="fw-bold"/>
+                <field name="age_bucket" widget="badge" decoration-warning="age_bucket in ('61-90', '91-180')" decoration-danger="age_bucket in ('181-365', '365+')"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Pivot View -->
+    <record id="view_stock_non_moving_goods_report_pivot" model="ir.ui.view">
+        <field name="name">stock.non.moving.goods.report.pivot</field>
+        <field name="model">stock.non.moving.goods.report</field>
+        <field name="arch" type="xml">
+            <pivot string="Non-Moving Goods Analysis" sample="1">
+                <field name="product_id" type="row"/>
+                <field name="age_bucket" type="col"/>
+                <field name="qty_on_hand" type="measure"/>
+                <field name="stock_value" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <!-- Graph View -->
+    <record id="view_stock_non_moving_goods_report_graph" model="ir.ui.view">
+        <field name="name">stock.non.moving.goods.report.graph</field>
+        <field name="model">stock.non.moving.goods.report</field>
+        <field name="arch" type="xml">
+            <graph string="Non-Moving Goods Analysis" type="bar" sample="1">
+                <field name="age_bucket"/>
+                <field name="stock_value" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- Search/Filter View -->
+    <record id="view_stock_non_moving_goods_report_search" model="ir.ui.view">
+        <field name="name">stock.non.moving.goods.report.search</field>
+        <field name="model">stock.non.moving.goods.report</field>
+        <field name="arch" type="xml">
+            <search string="Non-Moving Goods Search">
+                <field name="product_id" filter_domain="['|', ('product_id.name', 'ilike', self), ('product_id.default_code', 'ilike', self)]"/>
+                <field name="lot_id"/>
+                <field name="categ_id"/>
+                <field name="location_id"/>
+                <field name="warehouse_id"/>
+
+                <!-- Age Bucket Quick Filters -->
+                <filter string="0-30 Days" name="age_0_30" domain="[('age_bucket', '=', '0-30')]"/>
+                <filter string="31-60 Days" name="age_31_60" domain="[('age_bucket', '=', '31-60')]"/>
+                <filter string="61-90 Days" name="age_61_90" domain="[('age_bucket', '=', '61-90')]"/>
+                <filter string="91-180 Days" name="age_91_180" domain="[('age_bucket', '=', '91-180')]"/>
+                <filter string="181-365 Days" name="age_181_365" domain="[('age_bucket', '=', '181-365')]"/>
+                <filter string="365+ Days" name="age_365_plus" domain="[('age_bucket', '=', '365+')]"/>
+                
+                <separator/>
+                <filter string="Non-Moving (>90 Days)" name="non_moving_90" domain="[('non_moving_days', '>', 90)]"/>
+                <filter string="Non-Moving (>180 Days)" name="non_moving_180" domain="[('non_moving_days', '>', 180)]"/>
+                <filter string="Non-Moving (>365 Days)" name="non_moving_365" domain="[('non_moving_days', '>', 365)]"/>
+
+                <group expand="1" string="Group By">
+                    <filter string="Product" name="group_by_product" context="{'group_by': 'product_id'}"/>
+                    <filter string="Lot/Serial Number" name="group_by_lot" context="{'group_by': 'lot_id'}"/>
+                    <filter string="Category" name="group_by_category" context="{'group_by': 'categ_id'}"/>
+                    <filter string="Warehouse" name="group_by_warehouse" context="{'group_by': 'warehouse_id'}"/>
+                    <filter string="Location" name="group_by_location" context="{'group_by': 'location_id'}"/>
+                    <filter string="Age Bucket" name="group_by_age_bucket" context="{'group_by': 'age_bucket'}"/>
+                    <filter string="Company" name="group_by_company" context="{'group_by': 'company_id'}" groups="base.group_multi_company"/>
+                </group>
+            </search>
+        </field>
+    </record>
+</odoo>

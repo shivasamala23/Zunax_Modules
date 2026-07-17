@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_mrp_route_config,mrp.route.config,model_mrp_route_config,base.group_user,1,0,0,0
+access_mrp_route_config_line,mrp.route.config.line,model_mrp_route_config_line,base.group_user,1,0,0,0
+access_mrp_route_config_manager,mrp.route.config,model_mrp_route_config,ss_mrp_route_config.group_mrp_route_config_manager,1,1,1,1
+access_mrp_route_config_line_manager,mrp.route.config.line,model_mrp_route_config_line,ss_mrp_route_config.group_mrp_route_config_manager,1,1,1,1

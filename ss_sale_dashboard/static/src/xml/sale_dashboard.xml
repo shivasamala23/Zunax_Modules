@@ -1,0 +1,897 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+    <t t-name="ss_sale_dashboard.SaleDashboard" owl="1">
+        <div class="o_sale_dashboard container-fluid py-4 bg-light">
+            <!-- Header & Filters -->
+            <div class="dashboard-header d-flex justify-content-between align-items-center mb-4 p-3 bg-white rounded-3 shadow-sm">
+                <div>
+                </div>
+                <div class="filter-panel d-flex align-items-center gap-3">
+                    <!-- Year Filter -->
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="fw-semibold text-secondary text-nowrap m-0">Year:</label>
+                        <select class="form-select form-select-sm" t-on-change="onYearChange" t-model="state.filters.year">
+                            <option value="all">All Years</option>
+                            <option value="2024">2024</option>
+                            <option value="2025">2025</option>
+                            <option value="2026">2026</option>
+                            <option value="2027">2027</option>
+                            <option value="2028">2028</option>
+                            <option value="2029">2029</option>
+                            <option value="2030">2030</option>
+                        </select>
+                    </div>
+
+                    <!-- Month Filter -->
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="fw-semibold text-secondary text-nowrap m-0">Month:</label>
+                        <select class="form-select form-select-sm" t-on-change="onMonthChange" t-model="state.filters.month">
+                            <option value="all">All Months</option>
+                            <option value="Jan">January</option>
+                            <option value="Feb">February</option>
+                            <option value="Mar">March</option>
+                            <option value="Apr">April</option>
+                            <option value="May">May</option>
+                            <option value="Jun">June</option>
+                            <option value="Jul">July</option>
+                            <option value="Aug">August</option>
+                            <option value="Sep">September</option>
+                            <option value="Oct">October</option>
+                            <option value="Nov">November</option>
+                            <option value="Dec">December</option>
+                        </select>
+                    </div>
+
+                    <!-- Custom Date From -->
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="fw-semibold text-secondary text-nowrap m-0">From:</label>
+                        <input type="date" class="form-control form-control-sm" t-on-change="onDateFromChange" t-model="state.filters.date_from"/>
+                    </div>
+
+                    <!-- Custom Date To -->
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="fw-semibold text-secondary text-nowrap m-0">To:</label>
+                        <input type="date" class="form-control form-control-sm" t-on-change="onDateToChange" t-model="state.filters.date_to"/>
+                    </div>
+
+                    <!-- Branches Filter -->
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="fw-semibold text-secondary text-nowrap m-0">Branches:</label>
+                        <select class="form-select form-select-sm" t-on-change="onExcludeBranchesChange" t-model="state.filters.exclude_branches">
+                            <option value="with">With Branches</option>
+                            <option value="without">Without Branches (Customers Only)</option>
+                        </select>
+                    </div>
+
+                    <!-- Customer Filter (Searchable Dropdown) -->
+                    <div class="d-flex align-items-center gap-2 position-relative" id="customer-dropdown-container">
+                        <label class="fw-semibold text-secondary text-nowrap m-0">Customer:</label>
+                        <div class="searchable-dropdown" style="width: 220px; position: relative;">
+                            <input type="text" 
+                                   class="form-control form-control-sm dropdown-toggle-input" 
+                                   placeholder="Search Customer..." 
+                                   t-att-value="state.searchableDropdown.selectedName"
+                                   t-on-focus="onDropdownFocus"
+                                   t-on-input="onDropdownInput"
+                                   style="width: 100%; cursor: text;"
+                                   autocomplete="off"
+                            />
+                            <span class="dropdown-caret-btn" t-on-click="toggleDropdown" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #1e3a8a;">
+                                <i class="fa fa-caret-down"/>
+                            </span>
+                            
+                            <t t-if="state.searchableDropdown.isOpen">
+                                <ul class="dropdown-menu-list show position-absolute w-100 bg-white border rounded shadow py-1" 
+                                    style="max-height: 250px; overflow-y: auto; z-index: 1050; list-style: none; padding-left: 0; margin-top: 2px; border: 2px solid #cbd5e1 !important;">
+                                    <li class="dropdown-item-option d-flex align-items-center gap-2" 
+                                        t-on-click="() => this.toggleCustomer('all', 'All Customers')"
+                                        style="padding: 6px 12px; cursor: pointer; font-weight: bold; background-color: #f1f5f9; color: #1e3a8a; border-bottom: 1px solid #e2e8f0;">
+                                        <input type="checkbox" t-att-checked="state.filters.partner_ids.length === 0" style="cursor: pointer;" />
+                                        All Customers
+                                    </li>
+                                    <t t-foreach="getFilteredCustomers()" t-as="cust" t-key="cust.id">
+                                        <li class="dropdown-item-option d-flex align-items-center gap-2" 
+                                            t-on-click="() => this.toggleCustomer(cust.id, cust.ref ? '[' + cust.ref + '] ' + cust.name : cust.name)"
+                                            style="padding: 6px 12px; cursor: pointer; color: #000000; font-weight: 600; border-bottom: 1px dashed #f1f5f9;"
+                                            t-att-class="state.filters.partner_ids.includes(cust.id) ? 'bg-light font-weight-bold' : ''">
+                                            <input type="checkbox" t-att-checked="state.filters.partner_ids.includes(cust.id)" style="cursor: pointer;" />
+                                            <t t-esc="cust.ref ? '[' + cust.ref + '] ' + cust.name : cust.name"/>
+                                        </li>
+                                    </t>
+                                    <t t-if="getFilteredCustomers().length === 0">
+                                        <li style="padding: 6px 12px; color: #94a3b8; font-style: italic;">
+                                            No customers found
+                                        </li>
+                                    </t>
+                                </ul>
+                            </t>
+                        </div>
+                    </div>
+
+                    <!-- Product Category Filter (Searchable Dropdown) -->
+                    <div class="d-flex align-items-center gap-2 position-relative" id="category-dropdown-container">
+                        <label class="fw-semibold text-secondary text-nowrap m-0">Category:</label>
+                        <div class="searchable-dropdown" style="width: 220px; position: relative;">
+                            <input type="text" 
+                                   class="form-control form-control-sm dropdown-toggle-input" 
+                                   placeholder="Search Category..." 
+                                   t-att-value="state.categoryDropdown.selectedName"
+                                   t-on-focus="onCategoryDropdownFocus"
+                                   t-on-input="onCategoryDropdownInput"
+                                   style="width: 100%; cursor: text;"
+                                   autocomplete="off"
+                            />
+                            <span class="dropdown-caret-btn" t-on-click="toggleCategoryDropdown" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #10b981;">
+                                <i class="fa fa-caret-down"/>
+                            </span>
+                            
+                            <t t-if="state.categoryDropdown.isOpen">
+                                <ul class="dropdown-menu-list show position-absolute w-100 bg-white border rounded shadow py-1" 
+                                    style="max-height: 250px; overflow-y: auto; z-index: 1050; list-style: none; padding-left: 0; margin-top: 2px; border: 2px solid #cbd5e1 !important;">
+                                    <li class="dropdown-item-option d-flex align-items-center gap-2" 
+                                        t-on-click="() => this.toggleCategory('all', 'All Categories')"
+                                        style="padding: 6px 12px; cursor: pointer; font-weight: bold; background-color: #f1f5f9; color: #10b981; border-bottom: 1px solid #e2e8f0;">
+                                        <input type="checkbox" t-att-checked="state.filters.categ_ids.length === 0" style="cursor: pointer;" />
+                                        All Categories
+                                    </li>
+                                    <t t-foreach="getFilteredCategories()" t-as="cat" t-key="cat.id">
+                                        <li class="dropdown-item-option d-flex align-items-center gap-2" 
+                                            t-on-click="() => this.toggleCategory(cat.id, cat.complete_name || cat.name)"
+                                            style="padding: 6px 12px; cursor: pointer; color: #000000; font-weight: 600; border-bottom: 1px dashed #f1f5f9;"
+                                            t-att-class="state.filters.categ_ids.includes(cat.id) ? 'bg-light font-weight-bold' : ''">
+                                            <input type="checkbox" t-att-checked="state.filters.categ_ids.includes(cat.id)" style="cursor: pointer;" />
+                                            <t t-esc="cat.complete_name || cat.name"/>
+                                        </li>
+                                    </t>
+                                    <t t-if="getFilteredCategories().length === 0">
+                                        <li style="padding: 6px 12px; color: #94a3b8; font-style: italic;">
+                                            No categories found
+                                        </li>
+                                    </t>
+                                </ul>
+                            </t>
+                        </div>
+                    </div>
+
+                    <!-- Actions -->
+                    <button class="btn btn-outline-secondary btn-sm text-nowrap" t-on-click="resetFilters">
+                        <i class="fa fa-refresh me-1"/>Reset
+                    </button>
+                    <button class="btn btn-primary btn-sm text-nowrap" t-on-click="exportToExcel">
+                        <i class="fa fa-file-excel-o me-1"/>Export
+                    </button>
+                </div>
+            </div>
+
+            <t t-if="state.loading">
+                <div class="d-flex justify-content-center align-items-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </t>
+
+            <t t-else="">
+                <!-- KPI Section -->
+                <div class="row g-4 mb-4">
+                    <!-- Sales -->
+                    <div class="col-md-6 col-lg">
+                        <div class="kpi-card p-3 rounded-3 shadow cursor-pointer kpi-sales" t-on-click="() => this.openSalesOrdersList('sales')">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="kpi-label">Sales</span>
+                                <i class="fa fa-line-chart kpi-icon"/>
+                            </div>
+                            <h2 class="kpi-value">₹<t t-esc="state.data.kpis.sales.toLocaleString('en-IN')"/></h2>
+                            <span class="kpi-subtext">Posted invoices in range</span>
+                        </div>
+                    </div>
+
+                    <!-- Target vs Achievement -->
+                    <div class="col-md-6 col-lg">
+                        <div class="kpi-card p-3 rounded-3 shadow kpi-achievement">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="kpi-label">Achievement</span>
+                                <i class="fa fa-trophy kpi-icon"/>
+                            </div>
+                            <h2 class="kpi-value"><t t-esc="state.data.kpis.achievement_pct.toFixed(1)"/>%</h2>
+                            <span class="kpi-subtext">Target: ₹<t t-esc="state.data.kpis.target.toLocaleString('en-IN')"/></span>
+                        </div>
+                    </div>
+
+
+                    <!-- Outstanding -->
+                    <div class="col-md-6 col-lg">
+                        <div class="kpi-card p-3 rounded-3 shadow cursor-pointer kpi-outstanding" t-on-click="() => this.openInvoicesList('outstanding')">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="kpi-label">Outstanding</span>
+                                <i class="fa fa-clock-o kpi-icon"/>
+                            </div>
+                            <h2 class="kpi-value">₹<t t-esc="state.data.kpis.outstanding.toLocaleString('en-IN')"/></h2>
+                            <span class="kpi-subtext">Total unpaid customer bills</span>
+                        </div>
+                    </div>
+
+                    <!-- Overdue Outstanding -->
+                    <div class="col-md-6 col-lg">
+                        <div class="kpi-card p-3 rounded-3 shadow cursor-pointer kpi-overdue" t-on-click="() => this.openInvoicesList('overdue')">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="kpi-label">Overdue Outstanding</span>
+                                <i class="fa fa-exclamation-triangle kpi-icon"/>
+                            </div>
+                            <h2 class="kpi-value">₹<t t-esc="state.data.kpis.overdue_outstanding.toLocaleString('en-IN')"/></h2>
+                            <span class="kpi-subtext">Past invoice due dates</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bank & Reconciliation KPI Section -->
+                <div class="row g-4 mb-4">
+                    <!-- Partner Bank Received -->
+                    <div class="col-md-6 col-lg">
+                        <div class="kpi-card p-3 rounded-3 shadow cursor-pointer kpi-bank-partner-received" t-on-click="() => this.openBankTransferList('partner_received')">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="kpi-label">Partner Bank Received</span>
+                                <i class="fa fa-user-circle-o kpi-icon"/>
+                            </div>
+                            <h2 class="kpi-value">₹<t t-esc="state.data.kpis.bank_partner_received ? state.data.kpis.bank_partner_received.toLocaleString('en-IN') : '0'"/></h2>
+                            <span class="kpi-subtext">From customers only</span>
+                        </div>
+                    </div>
+
+                    <!-- Bank Transfers Received -->
+                    <div class="col-md-6 col-lg">
+                        <div class="kpi-card p-3 rounded-3 shadow cursor-pointer kpi-bank-received" t-on-click="() => this.openBankTransferList('received')">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="kpi-label">Bank Transfers Received</span>
+                                <i class="fa fa-university kpi-icon"/>
+                            </div>
+                            <h2 class="kpi-value">₹<t t-esc="state.data.kpis.bank_received ? state.data.kpis.bank_received.toLocaleString('en-IN') : '0'"/></h2>
+                            <span class="kpi-subtext">Total received in range</span>
+                        </div>
+                    </div>
+
+                    <!-- Reconciled Bank Amount -->
+                    <div class="col-md-6 col-lg">
+                        <div class="kpi-card p-3 rounded-3 shadow cursor-pointer kpi-bank-reconciled" t-on-click="() => this.openBankTransferList('reconciled')">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="kpi-label">Reconciled Amount</span>
+                                <i class="fa fa-check-circle kpi-icon"/>
+                            </div>
+                            <h2 class="kpi-value">₹<t t-esc="state.data.kpis.bank_reconciled ? state.data.kpis.bank_reconciled.toLocaleString('en-IN') : '0'"/></h2>
+                            <span class="kpi-subtext">Reconciliation is done</span>
+                        </div>
+                    </div>
+
+                    <!-- Suspense Account Amount -->
+                    <div class="col-md-6 col-lg">
+                        <div class="kpi-card p-3 rounded-3 shadow cursor-pointer kpi-bank-suspense" t-on-click="() => this.openBankTransferList('suspense')">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="kpi-label">Suspense Account Amount</span>
+                                <i class="fa fa-question-circle kpi-icon"/>
+                            </div>
+                            <h2 class="kpi-value">₹<t t-esc="state.data.kpis.bank_suspense ? state.data.kpis.bank_suspense.toLocaleString('en-IN') : '0'"/></h2>
+                            <span class="kpi-subtext">Received but in suspense</span>
+                        </div>
+                    </div>
+
+                    <!-- Reconciliation Percentage -->
+                    <div class="col-md-6 col-lg">
+                        <div class="kpi-card p-3 rounded-3 shadow kpi-bank-reconciled-pct">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <span class="kpi-label">Reconciliation %</span>
+                                <i class="fa fa-pie-chart kpi-icon"/>
+                            </div>
+                            <h2 class="kpi-value"><t t-esc="state.data.kpis.bank_reconciled_pct ? state.data.kpis.bank_reconciled_pct.toFixed(1) : '0.0'"/>%</h2>
+                            <span class="kpi-subtext">Reconciled against invoices</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Aged Receivables Table Section -->
+                <div class="row g-4 mb-4">
+                    <div class="col-12">
+                        <div class="card shadow-sm border-0 rounded-3">
+                            <div class="card-header bg-white py-3 border-0">
+                                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <h5 class="card-title fw-bold mb-0" style="color: #1e3a8a;">
+                                            <i class="fa fa-table me-2" style="color: #7c3aed;"/>Aged Receivables
+                                        </h5>
+                                        <span class="ar-meta-badge">At Date: <t t-esc="state.data.at_date || ''"/></span>
+                                    </div>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <span class="ar-summary-badge ar-green">Not Due: ₹<t t-esc="((state.data.aged_receivables_summary || {}).not_due || 0).toLocaleString('en-IN')"/></span>
+                                        <span class="ar-summary-badge ar-orange">Overdue Dues: ₹<t t-esc="((state.data.aged_receivables_summary || {}).dues || 0).toLocaleString('en-IN')"/></span>
+                                        <span class="ar-summary-badge ar-blue">Total: ₹<t t-esc="((state.data.aged_receivables_summary || {}).total || 0).toLocaleString('en-IN')"/></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="ar-table-wrapper">
+                                    <table class="ar-table table table-sm table-hover mb-0">
+                                        <thead>
+                                            <tr class="ar-thead-row">
+                                                <th class="ar-th ar-th-sticky">Customer</th>
+                                                <th class="ar-th">Accounting Date</th>
+                                                <th class="ar-th">Invoice Date</th>
+                                                <th class="ar-th">At Date</th>
+                                                <th class="ar-th">Bank Check Status</th>
+                                                <th class="ar-th ar-th-number ar-col-1-30">1–30</th>
+                                                <th class="ar-th">Branch Name</th>
+                                                <th class="ar-th ar-th-number ar-col-31-60">31–60</th>
+                                                <th class="ar-th">Owner</th>
+                                                <th class="ar-th ar-th-number ar-col-61-90">61–90</th>
+                                                <th class="ar-th ar-th-number">Credit Days</th>
+                                                <th class="ar-th ar-th-number ar-col-91-120">91–120</th>
+                                                <th class="ar-th ar-th-number">Credit Limit</th>
+                                                <th class="ar-th ar-th-number ar-col-121-150">121–150</th>
+                                                <th class="ar-th ar-th-number ar-col-151-180">151–180</th>
+                                                <th class="ar-th ar-th-number ar-col-older">Older</th>
+                                                <th class="ar-th ar-th-number ar-col-total">Total</th>
+                                                <th class="ar-th ar-th-number ar-col-dues">Dues</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <t t-if="(state.data.aged_receivables_list || []).length === 0">
+                                                <tr>
+                                                    <td colspan="18" class="text-center py-4 text-muted fst-italic">No outstanding receivables found</td>
+                                                </tr>
+                                            </t>
+                                            <t t-foreach="state.data.aged_receivables_list || []" t-as="ar" t-key="ar.partner_id">
+                                                <tr class="ar-row cursor-pointer" t-on-click="() => this.openAgedReceivables('customer', ar.partner_id)">
+                                                    <td class="ar-td ar-td-sticky ar-td-customer">
+                                                        <div class="fw-semibold text-wrap" style="color:#1e293b; word-break: break-word;"><t t-esc="ar.customer"/></div>
+                                                        <div class="ar-ref" t-if="ar.customer_ref"><t t-esc="ar.customer_ref"/></div>
+                                                    </td>
+                                                    <td class="ar-td ar-td-date"><t t-esc="ar.accounting_date"/></td>
+                                                    <td class="ar-td ar-td-date"><t t-esc="ar.invoice_date"/></td>
+                                                    <td class="ar-td ar-td-date"><t t-esc="ar.at_date"/></td>
+                                                    <td class="ar-td text-center">
+                                                        <span t-attf-class="badge rounded-pill px-2 py-1 #{ar.bank_check_status == 'Yes' ? 'bg-success text-white' : 'bg-secondary text-white'}" style="font-size: 11px;">
+                                                            <t t-esc="ar.bank_check_status"/>
+                                                        </span>
+                                                    </td>
+                                                    <td class="ar-td ar-td-number ar-col-1-30" t-on-click.stop="() => this.openAgedReceivables('bucket_1_30', ar.partner_id)">
+                                                        <t t-esc="ar.bucket_1_30 ? ar.bucket_1_30.toLocaleString('en-IN') : '—'"/>
+                                                    </td>
+                                                    <td class="ar-td"><t t-esc="ar.branch_name || '—'"/></td>
+                                                    <td class="ar-td ar-td-number ar-col-31-60" t-on-click.stop="() => this.openAgedReceivables('bucket_31_60', ar.partner_id)">
+                                                        <t t-esc="ar.bucket_31_60 ? ar.bucket_31_60.toLocaleString('en-IN') : '—'"/>
+                                                    </td>
+                                                    <td class="ar-td"><t t-esc="ar.owner || '—'"/></td>
+                                                    <td class="ar-td ar-td-number ar-col-61-90" t-on-click.stop="() => this.openAgedReceivables('bucket_61_90', ar.partner_id)">
+                                                        <t t-esc="ar.bucket_61_90 ? ar.bucket_61_90.toLocaleString('en-IN') : '—'"/>
+                                                    </td>
+                                                    <td class="ar-td ar-td-number"><t t-esc="ar.credit_days || '—'"/></td>
+                                                    <td class="ar-td ar-td-number ar-col-91-120" t-on-click.stop="() => this.openAgedReceivables('bucket_91_120', ar.partner_id)">
+                                                        <t t-esc="ar.bucket_91_120 ? ar.bucket_91_120.toLocaleString('en-IN') : '—'"/>
+                                                    </td>
+                                                    <td class="ar-td ar-td-number">
+                                                        <t t-esc="ar.credit_limit ? ar.credit_limit.toLocaleString('en-IN') : '—'"/>
+                                                    </td>
+                                                    <td class="ar-td ar-td-number ar-col-121-150" t-on-click.stop="() => this.openAgedReceivables('bucket_121_150', ar.partner_id)">
+                                                        <t t-esc="ar.bucket_121_150 ? ar.bucket_121_150.toLocaleString('en-IN') : '—'"/>
+                                                    </td>
+                                                    <td class="ar-td ar-td-number ar-col-151-180" t-on-click.stop="() => this.openAgedReceivables('bucket_151_180', ar.partner_id)">
+                                                        <t t-esc="ar.bucket_151_180 ? ar.bucket_151_180.toLocaleString('en-IN') : '—'"/>
+                                                    </td>
+                                                    <td class="ar-td ar-td-number ar-col-older" t-on-click.stop="() => this.openAgedReceivables('bucket_older', ar.partner_id)">
+                                                        <t t-esc="ar.bucket_older ? ar.bucket_older.toLocaleString('en-IN') : '—'"/>
+                                                    </td>
+                                                    <td class="ar-td ar-td-number ar-col-total fw-bold">
+                                                        <t t-esc="ar.total.toLocaleString('en-IN')"/>
+                                                    </td>
+                                                    <td class="ar-td ar-td-number ar-col-dues fw-bold">
+                                                        <t t-esc="ar.dues ? ar.dues.toLocaleString('en-IN') : '—'"/>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                        <!-- Summary / Totals Row -->
+                                        <tfoot t-if="(state.data.aged_receivables_list || []).length > 0">
+                                            <tr class="ar-tfoot-row">
+                                                <td class="ar-td ar-td-sticky fw-bold" colspan="5">Grand Total</td>
+                                                <td class="ar-td ar-td-number fw-bold ar-col-1-30">
+                                                    <t t-esc="((state.data.aged_receivables_summary || {}).bucket_1_30 || 0).toLocaleString('en-IN')"/>
+                                                </td>
+                                                <td class="ar-td fw-bold">—</td>
+                                                <td class="ar-td ar-td-number fw-bold ar-col-31-60">
+                                                    <t t-esc="((state.data.aged_receivables_summary || {}).bucket_31_60 || 0).toLocaleString('en-IN')"/>
+                                                </td>
+                                                <td class="ar-td fw-bold">—</td>
+                                                <td class="ar-td ar-td-number fw-bold ar-col-61-90">
+                                                    <t t-esc="((state.data.aged_receivables_summary || {}).bucket_61_90 || 0).toLocaleString('en-IN')"/>
+                                                </td>
+                                                <td class="ar-td fw-bold">—</td>
+                                                <td class="ar-td ar-td-number fw-bold ar-col-91-120">
+                                                    <t t-esc="((state.data.aged_receivables_summary || {}).bucket_91_120 || 0).toLocaleString('en-IN')"/>
+                                                </td>
+                                                <td class="ar-td fw-bold">—</td>
+                                                <td class="ar-td ar-td-number fw-bold ar-col-121-150">
+                                                    <t t-esc="((state.data.aged_receivables_summary || {}).bucket_121_150 || 0).toLocaleString('en-IN')"/>
+                                                </td>
+                                                <td class="ar-td ar-td-number fw-bold ar-col-151-180">
+                                                    <t t-esc="((state.data.aged_receivables_summary || {}).bucket_151_180 || 0).toLocaleString('en-IN')"/>
+                                                </td>
+                                                <td class="ar-td ar-td-number fw-bold ar-col-older">
+                                                    <t t-esc="((state.data.aged_receivables_summary || {}).bucket_older || 0).toLocaleString('en-IN')"/>
+                                                </td>
+                                                <td class="ar-td ar-td-number fw-bold ar-col-total">
+                                                    <t t-esc="((state.data.aged_receivables_summary || {}).total || 0).toLocaleString('en-IN')"/>
+                                                </td>
+                                                <td class="ar-td ar-td-number fw-bold ar-col-dues">
+                                                    <t t-esc="((state.data.aged_receivables_summary || {}).dues || 0).toLocaleString('en-IN')"/>
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ════════════════════════════════════════════════════════
+                     SEGMENT PERFORMANCE TAB
+                     (replaces all Excel HUPS/IB/2W/VRLA/Panel/GTI/Lithium files)
+                     ════════════════════════════════════════════════════════ -->
+                <div class="seg-perf-section card shadow-sm border-0 rounded-3 mb-4">
+                    <div class="card-header bg-white py-3 border-0">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <h5 class="card-title fw-bold mb-0" style="color:#1e3a8a;">
+                                <i class="fa fa-bar-chart me-2" style="color:#7c3aed;"/>
+                                Product Segment Performance (vs AOP)
+                            </h5>
+                            <div class="d-flex align-items-center gap-3 flex-wrap">
+                                <!-- Year selectors for segment tab -->
+                                <div class="d-flex align-items-center gap-2">
+                                    <label class="fw-semibold text-secondary text-nowrap m-0" style="font-size:12px;">Current Year:</label>
+                                    <select class="form-select form-select-sm" style="width:90px;"
+                                            t-on-change="onSegYearChange" t-model="state.segFilters.year">
+                                        <option value="2024">2024</option>
+                                        <option value="2025">2025</option>
+                                        <option value="2026">2026</option>
+                                        <option value="2027">2027</option>
+                                        <option value="2028">2028</option>
+                                    </select>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <label class="fw-semibold text-secondary text-nowrap m-0" style="font-size:12px;">Compare:</label>
+                                    <select class="form-select form-select-sm" style="width:90px;"
+                                            t-on-change="onSegCmpYearChange" t-model="state.segFilters.compare_year">
+                                        <option value="2023">2023</option>
+                                        <option value="2024">2024</option>
+                                        <option value="2025">2025</option>
+                                        <option value="2026">2026</option>
+                                    </select>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <label class="fw-semibold text-secondary text-nowrap m-0" style="font-size:12px;">View:</label>
+                                    <select class="form-select form-select-sm" style="width:140px;"
+                                            t-on-change="onSegViewChange" t-model="state.segFilters.view">
+                                        <option value="summary">Summary (All Segments)</option>
+                                        <option value="detail">Branch Drill-Down</option>
+                                    </select>
+                                </div>
+                                <t t-if="state.segFilters.view === 'detail'">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <label class="fw-semibold text-secondary text-nowrap m-0" style="font-size:12px;">Segment:</label>
+                                        <select class="form-select form-select-sm" style="width:130px;"
+                                                t-on-change="onSegSegmentChange" t-model="state.segFilters.segment">
+                                            <option value="HUPS">HUPS</option>
+                                            <option value="IB">IB</option>
+                                            <option value="2W">2W</option>
+                                            <option value="VRLA">VRLA</option>
+                                            <option value="PANEL">Solar Panel</option>
+                                            <option value="GTI">GTI / Hybrid</option>
+                                            <option value="LITHIUM">Lithium / ESSM</option>
+                                        </select>
+                                    </div>
+                                </t>
+                                <button class="btn btn-sm btn-outline-primary text-nowrap" t-on-click="refreshSegmentData">
+                                    <i class="fa fa-refresh me-1"/>Refresh
+                                </button>
+                                <button class="btn btn-sm btn-success text-nowrap text-white" t-on-click="exportSegmentExcel">
+                                    <i class="fa fa-file-excel-o me-1"/>Export Excel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-body p-0">
+                        <t t-if="state.segLoading">
+                            <div class="d-flex justify-content-center align-items-center py-5">
+                                <div class="spinner-border text-primary" role="status"/>
+                                <span class="ms-3 text-muted">Loading segment data…</span>
+                            </div>
+                        </t>
+
+                        <t t-elif="!state.segData or !state.segData.segments">
+                            <div class="text-center py-5 text-muted fst-italic">
+                                No segment data found. Make sure sale orders with the product categories
+                                (HUPS, IB, 2W, VRLA, Solar Panel, GTI, Lithium) are confirmed in Odoo.
+                            </div>
+                        </t>
+
+                        <t t-else="">
+                            <!-- ── SUMMARY VIEW: one row per segment ───────────────────── -->
+                            <t t-if="state.segFilters.view === 'summary'">
+                                <div class="seg-table-wrapper">
+                                    <table class="seg-table table table-sm table-hover mb-0">
+                                        <thead>
+                                            <tr class="seg-thead-row">
+                                                <th class="seg-th seg-th-sticky">Segment</th>
+                                                <th class="seg-th seg-th-num">AOP Total</th>
+                                                <th class="seg-th seg-th-num" t-attf-title="Total #{state.segData.compare_year}">
+                                                    Total <t t-esc="state.segData.compare_year"/>
+                                                </th>
+                                                <th class="seg-th seg-th-num" t-attf-title="Total #{state.segData.year}">
+                                                    Total <t t-esc="state.segData.year"/>
+                                                </th>
+                                                <th class="seg-th seg-th-num">Growth %</th>
+                                                <th class="seg-th seg-th-num">AOP Ach %</th>
+                                                <t t-foreach="state.segData.months" t-as="mon" t-key="mon">
+                                                    <th class="seg-th seg-th-num seg-th-month" t-esc="mon"/>
+                                                </t>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <t t-foreach="state.segData.segments" t-as="seg" t-key="seg">
+                                                <t t-set="sd" t-value="state.segData.data[seg]"/>
+                                                <tr class="seg-row cursor-pointer"
+                                                    t-on-click="() => this.openSegmentOrders(seg)">
+                                                    <td class="seg-td seg-td-sticky fw-bold" style="color:#1e3a8a;">
+                                                        <span style="display:flex;align-items:center;gap:6px;">
+                                                            <i class="fa fa-list-alt text-muted" style="font-size:11px;" title="Click row to view orders"/>
+                                                            <t t-esc="seg"/>
+                                                            <button class="btn btn-link btn-sm p-0 ms-auto seg-drill-btn"
+                                                                    title="Branch drill-down"
+                                                                    t-on-click.stop="() => this.drillSegment(seg)"
+                                                                    style="font-size:11px;color:#7c3aed;text-decoration:none;line-height:1;">
+                                                                <i class="fa fa-sitemap"/> Branches
+                                                            </button>
+                                                        </span>
+                                                    </td>
+                                                    <td class="seg-td seg-td-num text-muted">
+                                                        <t t-esc="sd._aop_total ? sd._aop_total.toLocaleString('en-IN') : '—'"/>
+                                                    </td>
+                                                    <td class="seg-td seg-td-num">
+                                                        <t t-esc="sd._total_cmp ? sd._total_cmp.toLocaleString('en-IN') : '0'"/>
+                                                    </td>
+                                                    <td class="seg-td seg-td-num fw-bold">
+                                                        <t t-esc="sd._total_cur ? sd._total_cur.toLocaleString('en-IN') : '0'"/>
+                                                    </td>
+                                                    <td class="seg-td seg-td-num">
+                                                        <span t-attf-class="seg-badge #{sd._growth_pct > 0 ? 'seg-green' : sd._growth_pct &lt; 0 ? 'seg-red' : 'seg-yellow'}">
+                                                            <t t-esc="sd._growth_pct.toFixed(0)"/>%
+                                                        </span>
+                                                    </td>
+                                                    <td class="seg-td seg-td-num">
+                                                        <span t-attf-class="seg-badge #{sd._aop_ach_pct >= 100 ? 'seg-green' : sd._aop_ach_pct >= 50 ? 'seg-yellow' : sd._aop_ach_pct > 0 ? 'seg-red' : 'seg-na'}">
+                                                            <t t-if="sd._aop_total"><t t-esc="sd._aop_ach_pct.toFixed(0)"/>%</t>
+                                                            <t t-else="">—</t>
+                                                        </span>
+                                                    </td>
+                                                    <t t-foreach="state.segData.months" t-as="mon" t-key="mon">
+                                                        <td class="seg-td seg-td-num seg-td-month text-end p-0">
+                                                            <div class="seg-month-cell align-items-stretch" style="height:100%;">
+                                                                <span class="seg-cur cursor-pointer px-2 py-1 text-end seg-subcell-hover" 
+                                                                      t-on-click.stop="() => this.openSegmentOrders(seg, null, mon, state.segData.year)" 
+                                                                      style="display:block;"
+                                                                      title="Click to view orders for this month">
+                                                                    <t t-esc="(sd._months[mon] || {}).cur || 0"/>
+                                                                </span>
+                                                                <span class="seg-cmp cursor-pointer px-2 py-1 text-end text-muted border-top seg-subcell-hover" 
+                                                                      t-on-click.stop="() => this.openSegmentOrders(seg, null, mon, state.segData.compare_year)"
+                                                                      style="display:block;font-size:10px;"
+                                                                      title="Click to view compare year orders for this month">
+                                                                    <t t-esc="(sd._months[mon] || {}).cmp || 0"/>
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                    </t>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="px-3 py-2 text-muted" style="font-size:15px;">
+                                    Each month cell shows: <strong>Current Year (top)</strong> / <em>Compare Year (bottom)</em>.
+                                    Click a row to drill into branch detail.
+                                </div>
+                            </t>
+
+                            <!-- ── DETAIL VIEW: branch breakdown for one segment ──────── -->
+                            <t t-if="state.segFilters.view === 'detail'">
+                                <t t-set="activeSeg" t-value="state.segFilters.segment"/>
+                                <t t-set="sd" t-value="state.segData.data[activeSeg]"/>
+                                <t t-if="sd">
+                                    <!-- Segment header KPIs -->
+                                    <div class="d-flex gap-3 flex-wrap p-3 border-bottom bg-light">
+                                        <div class="seg-kpi-pill">
+                                            <span class="seg-kpi-label">AOP Total</span>
+                                            <span class="seg-kpi-val">
+                                                <t t-esc="sd._aop_total ? sd._aop_total.toLocaleString('en-IN') : '—'"/>
+                                            </span>
+                                        </div>
+                                        <div class="seg-kpi-pill">
+                                            <span class="seg-kpi-label"><t t-esc="state.segData.compare_year"/> Total</span>
+                                            <span class="seg-kpi-val"><t t-esc="sd._total_cmp.toLocaleString('en-IN')"/></span>
+                                        </div>
+                                        <div class="seg-kpi-pill">
+                                            <span class="seg-kpi-label"><t t-esc="state.segData.year"/> Total</span>
+                                            <span class="seg-kpi-val fw-bold"><t t-esc="sd._total_cur.toLocaleString('en-IN')"/></span>
+                                        </div>
+                                        <div class="seg-kpi-pill">
+                                            <span class="seg-kpi-label">Growth</span>
+                                            <span t-attf-class="seg-kpi-val #{sd._growth_pct > 0 ? 'text-success' : sd._growth_pct &lt; 0 ? 'text-danger' : 'text-warning'}">
+                                                <t t-esc="sd._growth_pct.toFixed(1)"/>%
+                                            </span>
+                                        </div>
+                                        <div class="seg-kpi-pill">
+                                            <span class="seg-kpi-label">AOP Ach %</span>
+                                            <span t-attf-class="seg-kpi-val #{sd._aop_ach_pct >= 100 ? 'text-success' : sd._aop_ach_pct >= 50 ? 'text-warning' : 'text-danger'}">
+                                                <t t-if="sd._aop_total"><t t-esc="sd._aop_ach_pct.toFixed(1)"/>%</t>
+                                                <t t-else="">—</t>
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Branch × Month drill-down table -->
+                                    <div class="seg-table-wrapper">
+                                        <table class="seg-table table table-sm table-hover mb-0">
+                                            <thead>
+                                                <tr class="seg-thead-row">
+                                                    <th class="seg-th seg-th-sticky">Branch</th>
+                                                    <th class="seg-th seg-th-num">AOP</th>
+                                                    <th class="seg-th seg-th-num">
+                                                        Total <t t-esc="state.segData.compare_year"/>
+                                                    </th>
+                                                    <th class="seg-th seg-th-num">
+                                                        Total <t t-esc="state.segData.year"/>
+                                                    </th>
+                                                    <th class="seg-th seg-th-num">Growth %</th>
+                                                    <th class="seg-th seg-th-num">AOP Ach %</th>
+                                                    <t t-foreach="state.segData.months" t-as="mon" t-key="mon">
+                                                        <th class="seg-th seg-th-month-group" colspan="2">
+                                                            <t t-esc="mon"/>
+                                                        </th>
+                                                    </t>
+                                                </tr>
+                                                <tr class="seg-thead-sub">
+                                                    <th class="seg-th-sticky" style="background: #2563eb !important; border: none !important;"/>
+                                                    <th style="background: #2563eb !important; border: none !important;"/>
+                                                    <th style="background: #2563eb !important; border: none !important;"/>
+                                                    <th style="background: #2563eb !important; border: none !important;"/>
+                                                    <th style="background: #2563eb !important; border: none !important;"/>
+                                                    <th style="background: #2563eb !important; border: none !important;"/>
+                                                    <t t-foreach="state.segData.months" t-as="mon" t-key="mon">
+                                                        <th class="seg-th seg-th-num seg-th-sub" t-esc="state.segData.year"/>
+                                                        <th class="seg-th seg-th-num seg-th-sub text-muted" t-esc="state.segData.compare_year"/>
+                                                    </t>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <t t-foreach="state.segData.branches" t-as="br" t-key="br">
+                                                    <t t-set="bd" t-value="sd[br]"/>
+                                                    <t t-if="bd">
+                                                        <tr class="seg-row cursor-pointer"
+                                                            t-on-click="() => this.openSegmentOrders(state.segFilters.segment, br)">
+                                                            <td class="seg-td seg-td-sticky fw-semibold" style="color:#1e293b;">
+                                                                <i class="fa fa-list-alt me-1 text-muted" style="font-size:10px;"/>
+                                                                <t t-esc="br"/>
+                                                            </td>
+                                                            <td class="seg-td seg-td-num text-muted">
+                                                                <t t-esc="bd._aop ? bd._aop.toLocaleString('en-IN') : '—'"/>
+                                                            </td>
+                                                            <td class="seg-td seg-td-num">
+                                                                <t t-esc="bd._total_cmp ? bd._total_cmp.toLocaleString('en-IN') : '0'"/>
+                                                            </td>
+                                                            <td class="seg-td seg-td-num fw-bold">
+                                                                <t t-esc="bd._total_cur ? bd._total_cur.toLocaleString('en-IN') : '0'"/>
+                                                            </td>
+                                                            <td class="seg-td seg-td-num">
+                                                                <span t-attf-class="seg-badge #{bd._growth_pct > 0 ? 'seg-green' : bd._growth_pct &lt; 0 ? 'seg-red' : bd._total_cmp == 0 ? 'seg-na' : 'seg-yellow'}">
+                                                                    <t t-if="bd._total_cmp"><t t-esc="bd._growth_pct.toFixed(0)"/>%</t>
+                                                                    <t t-else="">—</t>
+                                                                </span>
+                                                            </td>
+                                                            <td class="seg-td seg-td-num">
+                                                                <span t-attf-class="seg-badge #{bd._aop_ach_pct >= 100 ? 'seg-green' : bd._aop_ach_pct >= 50 ? 'seg-yellow' : bd._aop > 0 ? 'seg-red' : 'seg-na'}">
+                                                                    <t t-if="bd._aop"><t t-esc="bd._aop_ach_pct.toFixed(0)"/>%</t>
+                                                                    <t t-else="">—</t>
+                                                                </span>
+                                                            </td>
+                                                            <t t-foreach="state.segData.months" t-as="mon" t-key="mon">
+                                                                <td class="seg-td seg-td-num fw-semibold cursor-pointer seg-cell-hover"
+                                                                    t-on-click.stop="() => this.openSegmentOrders(state.segFilters.segment, br, mon, state.segData.year)"
+                                                                    title="Click to view orders for this month">
+                                                                    <t t-esc="(bd._months[mon] || {}).cur || 0"/>
+                                                                </td>
+                                                                <td class="seg-td seg-td-num text-muted cursor-pointer seg-cell-hover"
+                                                                    t-on-click.stop="() => this.openSegmentOrders(state.segFilters.segment, br, mon, state.segData.compare_year)"
+                                                                    title="Click to view compare year orders for this month">
+                                                                    <t t-esc="(bd._months[mon] || {}).cmp || 0"/>
+                                                                </td>
+                                                            </t>
+                                                        </tr>
+                                                    </t>
+                                                </t>
+                                            </tbody>
+                                            <!-- Grand Total Row -->
+                                            <tfoot>
+                                                <tr class="seg-tfoot-row cursor-pointer"
+                                                    t-on-click="() => this.openSegmentOrders(state.segFilters.segment)"
+                                                    title="View all sale orders for this segment">
+                                                    <td class="seg-td seg-td-sticky fw-bold" colspan="1">
+                                                        <i class="fa fa-list-alt me-1"/>TOTAL
+                                                    </td>
+                                                    <td class="seg-td seg-td-num fw-bold text-muted">
+                                                        <t t-esc="sd._aop_total ? sd._aop_total.toLocaleString('en-IN') : '—'"/>
+                                                    </td>
+                                                    <td class="seg-td seg-td-num fw-bold">
+                                                        <t t-esc="sd._total_cmp.toLocaleString('en-IN')"/>
+                                                    </td>
+                                                    <td class="seg-td seg-td-num fw-bold" style="color:#1e3a8a;">
+                                                        <t t-esc="sd._total_cur.toLocaleString('en-IN')"/>
+                                                    </td>
+                                                    <td class="seg-td seg-td-num fw-bold">
+                                                        <span t-attf-class="seg-badge #{sd._growth_pct > 0 ? 'seg-green' : sd._growth_pct &lt; 0 ? 'seg-red' : 'seg-yellow'}">
+                                                            <t t-esc="sd._growth_pct.toFixed(0)"/>%
+                                                        </span>
+                                                    </td>
+                                                    <td class="seg-td seg-td-num fw-bold">
+                                                        <span t-attf-class="seg-badge #{sd._aop_ach_pct >= 100 ? 'seg-green' : sd._aop_ach_pct >= 50 ? 'seg-yellow' : sd._aop_ach_pct > 0 ? 'seg-red' : 'seg-na'}">
+                                                            <t t-if="sd._aop_total"><t t-esc="sd._aop_ach_pct.toFixed(0)"/>%</t>
+                                                            <t t-else="">—</t>
+                                                        </span>
+                                                    </td>
+                                                    <t t-foreach="state.segData.months" t-as="mon" t-key="mon">
+                                                        <td class="seg-td seg-td-num fw-bold cursor-pointer seg-cell-hover" style="color:#1e3a8a;"
+                                                            t-on-click.stop="() => this.openSegmentOrders(state.segFilters.segment, null, mon, state.segData.year)"
+                                                            title="Click to view all orders for this month">
+                                                            <t t-esc="(sd._months[mon] || {}).cur || 0"/>
+                                                        </td>
+                                                        <td class="seg-td seg-td-num fw-bold text-muted cursor-pointer seg-cell-hover"
+                                                            t-on-click.stop="() => this.openSegmentOrders(state.segFilters.segment, null, mon, state.segData.compare_year)"
+                                                            title="Click to view all compare year orders for this month">
+                                                            <t t-esc="(sd._months[mon] || {}).cmp || 0"/>
+                                                        </td>
+                                                    </t>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                    <div class="px-3 py-2 text-muted" style="font-size:11px;">
+                                        Columns show: <strong>Current Year <t t-esc="state.segData.year"/></strong> (left)
+                                        and <em>Compare Year <t t-esc="state.segData.compare_year"/></em> (right, grey) per month.
+                                    </div>
+                                </t>
+                            </t>
+                        </t>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="row g-4 mb-4">
+                    <!-- Trend Chart -->
+                    <div class="col-lg-6">
+                        <div class="card shadow-sm border-0 rounded-3">
+                            <div class="card-header bg-white py-3 border-0">
+                                <h5 class="card-title fw-bold text-dark mb-0">Sales Trend</h5>
+                            </div>
+                            <div class="card-body" style="height: 320px; position: relative;">
+                                <canvas id="trendChartCanvas"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Region Chart -->
+                    <div class="col-lg-6">
+                        <div class="card shadow-sm border-0 rounded-3">
+                            <div class="card-header bg-white py-3 border-0">
+                                <h5 class="card-title fw-bold text-dark mb-0">Region-wise Sales</h5>
+                            </div>
+                            <div class="card-body" style="height: 320px; position: relative;">
+                                <canvas id="regionChartCanvas"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-4 mb-4">
+                    <!-- Product Chart -->
+                    <div class="col-lg-6">
+                        <div class="card shadow-sm border-0 rounded-3">
+                            <div class="card-header bg-white py-3 border-0">
+                                <h5 class="card-title fw-bold text-dark mb-0">Top Products Sold</h5>
+                            </div>
+                            <div class="card-body" style="height: 320px; position: relative;">
+                                <canvas id="productChartCanvas"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Overdue Invoices List -->
+                    <div class="col-lg-6">
+                        <div class="card shadow-sm border-0 rounded-3 h-100">
+                            <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+                                <h5 class="card-title fw-bold text-dark mb-0">Overdue Outstanding Invoices by Customer</h5>
+                                <button class="btn btn-link btn-sm text-decoration-none fw-semibold" t-on-click="() => this.openInvoicesList('overdue')">View All</button>
+                            </div>
+                            <div class="card-body p-0 overflow-auto" style="max-height: 320px;">
+                                <table class="table table-hover table-striped align-middle mb-0">
+                                    <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th>Customer</th>
+                                            <th class="text-center">Invoice Count</th>
+                                            <th class="text-end">Total Amount</th>
+                                            <th class="text-end">Overdue Outstanding</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <t t-foreach="state.data.overdue_list" t-as="inv" t-key="inv.partner_id">
+                                            <tr class="cursor-pointer" t-on-click="() => this.openCustomerOverdueInvoices(inv.partner_id)">
+                                                <td class="fw-semibold text-primary"><t t-esc="inv.customer"/></td>
+                                                <td class="text-center"><span class="badge bg-secondary rounded-pill"><t t-esc="inv.invoice_count"/></span></td>
+                                                <td class="text-end">₹<t t-esc="inv.amount_total.toLocaleString('en-IN')"/></td>
+                                                <td class="text-end fw-bold text-danger">₹<t t-esc="inv.amount_residual.toLocaleString('en-IN')"/></td>
+                                            </tr>
+                                        </t>
+                                        <t t-if="!state.data.overdue_list || state.data.overdue_list.length === 0">
+                                            <tr>
+                                                <td colspan="4" class="text-center text-muted py-4">No overdue outstanding invoices found.</td>
+                                            </tr>
+                                        </t>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 3: Segment-wise Sales (Partner) & Product Segment-wise Sales (Excel style) -->
+                <div class="row g-4 mb-4">
+                    <!-- Segment-wise Sales -->
+                    <div class="col-lg-6">
+                        <div class="card shadow-sm border-0 rounded-3">
+                            <div class="card-header bg-white py-3 border-0">
+                                <h5 class="card-title fw-bold text-dark mb-0">Partner Segment-wise Sales</h5>
+                            </div>
+                            <div class="card-body" style="height: 320px; position: relative;">
+                                <canvas id="segmentChartCanvas"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product Segment-wise Sales -->
+                    <div class="col-lg-6">
+                        <div class="card shadow-sm border-0 rounded-3">
+                            <div class="card-header bg-white py-3 border-0">
+                                <h5 class="card-title fw-bold text-dark mb-0">Product Segment-wise Sales (Excel Groups)</h5>
+                            </div>
+                            <div class="card-body" style="height: 320px; position: relative;">
+                                <canvas id="productSegmentChartCanvas"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 4: Category-wise Sales -->
+                <div class="row g-4 mb-4">
+                    <!-- Category-wise Sales -->
+                    <div class="col-lg-6">
+                        <div class="card shadow-sm border-0 rounded-3">
+                            <div class="card-header bg-white py-3 border-0">
+                                <h5 class="card-title fw-bold text-dark mb-0">Product Category-wise Sales (Top 10)</h5>
+                            </div>
+                            <div class="card-body" style="height: 320px; position: relative;">
+                                <canvas id="categoryChartCanvas"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </t>
+        </div>
+    </t>
+</templates>

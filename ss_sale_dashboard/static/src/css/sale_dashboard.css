@@ -1,0 +1,629 @@
+/* Sales & Collection Dashboard Styling - Classical Contrast Light Theme */
+
+.o_sale_dashboard {
+    height: 100% !important;
+    min-height: 100%;
+    overflow-y: auto !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    color: #1e293b !important;
+    background-color: #f8fafc !important;
+    padding: 1.5rem !important;
+}
+
+.o_sale_dashboard .dashboard-header {
+    background-color: #ffffff !important;
+    border-left: 6px solid #1e3a8a !important; /* Classical Royal Blue accent */
+    border-bottom: 2px solid #cbd5e1 !important;
+    border-radius: 6px !important;
+}
+
+/* High Contrast Global Filters scoped to dashboard */
+.o_sale_dashboard .filter-panel label {
+    color: #0d1b2a !important;
+    font-weight: 800 !important; /* Bold, highly visible labels */
+    font-size: 0.95rem !important;
+}
+
+.o_sale_dashboard .filter-panel .form-select,
+.o_sale_dashboard .filter-panel .form-control {
+    border: 2px solid #1e3a8a !important; /* High contrast Royal Blue border */
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-weight: 700 !important; /* Bold selected options */
+    border-radius: 6px !important;
+    font-size: 0.95rem !important;
+    padding: 0.4rem 0.8rem !important;
+}
+
+.o_sale_dashboard .filter-panel .form-select:focus,
+.o_sale_dashboard .filter-panel .form-control:focus {
+    border-color: #000000 !important;
+    box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.25) !important;
+}
+
+/* Action Buttons */
+.o_sale_dashboard .filter-panel .btn {
+    font-weight: 800 !important;
+    border-radius: 6px !important;
+    border: 2px solid !important;
+    font-size: 0.9rem !important;
+    padding: 0.4rem 1rem !important;
+}
+
+.o_sale_dashboard .filter-panel .btn-outline-secondary {
+    color: #1e293b !important;
+    border-color: #475569 !important;
+    background-color: #ffffff !important;
+}
+
+.o_sale_dashboard .filter-panel .btn-outline-secondary:hover {
+    background-color: #e2e8f0 !important;
+}
+
+.o_sale_dashboard .filter-panel .btn-primary {
+    background-color: #1e3a8a !important;
+    border-color: #1e3a8a !important;
+    color: #ffffff !important;
+}
+
+.o_sale_dashboard .filter-panel .btn-primary:hover {
+    background-color: #1d4ed8 !important;
+    border-color: #1d4ed8 !important;
+}
+
+/* Classical Light Background KPI Cards with Accent Left Borders */
+.o_sale_dashboard .kpi-card {
+    background-color: #ffffff !important;
+    border: 2px solid #cbd5e1 !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05) !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    padding: 1.25rem !important;
+}
+
+.o_sale_dashboard .kpi-card:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Specific Accent Colors for KPI Borders */
+.o_sale_dashboard .kpi-sales {
+    border-left: 6px solid #1e3a8a !important; /* Royal Blue */
+}
+
+.o_sale_dashboard .kpi-achievement {
+    border-left: 6px solid #581c87 !important; /* Purple */
+}
+
+.o_sale_dashboard .kpi-collection {
+    border-left: 6px solid #0f766e !important; /* Teal */
+}
+
+.o_sale_dashboard .kpi-outstanding {
+    border-left: 6px solid #c2410c !important; /* Orange/Gold */
+}
+
+.o_sale_dashboard .kpi-overdue {
+    border-left: 6px solid #b91c1c !important; /* Red */
+}
+
+.o_sale_dashboard .kpi-bank-partner-received {
+    border-left: 6px solid #8b5cf6 !important; /* Soft Purple */
+}
+
+.o_sale_dashboard .kpi-bank-received {
+    border-left: 6px solid #4f46e5 !important; /* Indigo */
+}
+
+.o_sale_dashboard .kpi-bank-reconciled {
+    border-left: 6px solid #10b981 !important; /* Emerald */
+}
+
+.o_sale_dashboard .kpi-bank-suspense {
+    border-left: 6px solid #f59e0b !important; /* Amber */
+}
+
+.o_sale_dashboard .kpi-bank-reconciled-pct {
+    border-left: 6px solid #06b6d4 !important; /* Cyan */
+}
+
+/* Inside the Light KPI Cards: Extremely bright/high contrast dark texts */
+.o_sale_dashboard .kpi-label {
+    color: #475569 !important; /* Slate Gray */
+    font-weight: 800 !important;
+    font-size: 0.95rem !important;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.o_sale_dashboard .kpi-value {
+    color: #0f172a !important; /* Near black */
+    font-weight: 850 !important; /* Extremely Bold */
+    font-size: 1.65rem !important;
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+    display: block;
+}
+
+/* Dynamic color highlights for the value fonts to match accent borders */
+.o_sale_dashboard .kpi-sales .kpi-value {
+    color: #1e3a8a !important; /* Royal Blue */
+}
+.o_sale_dashboard .kpi-achievement .kpi-value {
+    color: #581c87 !important; /* Purple */
+}
+.o_sale_dashboard .kpi-collection .kpi-value {
+    color: #0f766e !important; /* Teal */
+}
+.o_sale_dashboard .kpi-outstanding .kpi-value {
+    color: #c2410c !important; /* Orange/Gold */
+}
+.o_sale_dashboard .kpi-overdue .kpi-value {
+    color: #b91c1c !important; /* Red */
+}
+
+.o_sale_dashboard .kpi-bank-partner-received .kpi-value {
+    color: #8b5cf6 !important; /* Soft Purple */
+}
+
+.o_sale_dashboard .kpi-bank-partner-received .kpi-icon {
+    color: #8b5cf6 !important;
+}
+
+.o_sale_dashboard .kpi-bank-received .kpi-value {
+    color: #4f46e5 !important; /* Indigo */
+}
+
+.o_sale_dashboard .kpi-bank-reconciled .kpi-value {
+    color: #10b981 !important; /* Emerald */
+}
+
+.o_sale_dashboard .kpi-bank-suspense .kpi-value {
+    color: #f59e0b !important; /* Amber */
+}
+
+.o_sale_dashboard .kpi-bank-reconciled-pct .kpi-value {
+    color: #06b6d4 !important; /* Cyan */
+}
+
+.o_sale_dashboard .kpi-subtext {
+    color: #475569 !important; /* Slate Gray */
+    font-weight: 700 !important;
+    font-size: 0.85rem !important;
+    display: block;
+}
+
+/* Accent colored icons */
+.o_sale_dashboard .kpi-icon {
+    font-size: 1.5rem !important;
+}
+.o_sale_dashboard .kpi-sales .kpi-icon {
+    color: #1e3a8a !important;
+}
+.o_sale_dashboard .kpi-achievement .kpi-icon {
+    color: #581c87 !important;
+}
+.o_sale_dashboard .kpi-collection .kpi-icon {
+    color: #0f766e !important;
+}
+.o_sale_dashboard .kpi-outstanding .kpi-icon {
+    color: #c2410c !important;
+}
+.o_sale_dashboard .kpi-overdue .kpi-icon {
+    color: #b91c1c !important;
+}
+
+/* Card components scoped to dashboard wrapper */
+.o_sale_dashboard .card {
+    border: 2px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05) !important;
+    border-radius: 8px !important;
+}
+
+.o_sale_dashboard .card-header {
+    background-color: #f8fafc !important;
+    border-bottom: 2px solid #e2e8f0 !important;
+}
+
+.o_sale_dashboard .card-header h5 {
+    color: #1e3a8a !important;
+    font-weight: 800 !important;
+}
+
+
+
+/* Searchable Dropdown hover states */
+.o_sale_dashboard .dropdown-item-option:hover {
+    background-color: #1e3a8a !important;
+    color: #ffffff !important;
+}
+
+/* ============================================================
+   Aged Receivables Table
+   ============================================================ */
+.o_sale_dashboard .ar-table-wrapper {
+    overflow-x: auto;
+    max-height: 480px;
+    overflow-y: auto;
+    border-radius: 0 0 12px 12px;
+}
+
+.o_sale_dashboard .ar-table {
+    min-width: 1600px;
+    font-size: 12px;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+/* Sticky Customer column */
+.o_sale_dashboard .ar-th-sticky,
+.o_sale_dashboard .ar-td-sticky {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    background: #fff;
+    min-width: 180px;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.08);
+    border-right: 2px solid #cbd5e1 !important;
+}
+
+/* Thead */
+.o_sale_dashboard .ar-thead-row {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+}
+.o_sale_dashboard .ar-th {
+    padding: 9px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    border-bottom: 2px solid #94a3b8 !important;
+    border-right: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    vertical-align: middle;
+}
+.o_sale_dashboard .ar-th-sticky {
+    background: #f1f5f9 !important;
+    z-index: 5;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    color: #0f172a !important;
+}
+.o_sale_dashboard .ar-th-number { text-align: right; }
+
+/* Aging column headers - styled like standard headers */
+.o_sale_dashboard .ar-col-1-30,
+.o_sale_dashboard .ar-col-31-60,
+.o_sale_dashboard .ar-col-61-90,
+.o_sale_dashboard .ar-col-91-120,
+.o_sale_dashboard .ar-col-121-150,
+.o_sale_dashboard .ar-col-151-180,
+.o_sale_dashboard .ar-col-older,
+.o_sale_dashboard .ar-col-total,
+.o_sale_dashboard .ar-col-dues {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+}
+
+/* Body rows */
+.o_sale_dashboard .ar-td {
+    padding: 7px 10px;
+    border-bottom: 1px solid #cbd5e1 !important;
+    border-right: 1px solid #e2e8f0 !important;
+    vertical-align: middle;
+    white-space: nowrap;
+    color: #0f172a;
+    min-width: 100px;
+}
+.o_sale_dashboard .ar-td-number { text-align: right; font-variant-numeric: tabular-nums; min-width: 90px; }
+.o_sale_dashboard .ar-td-date   { font-size: 11px; color: #334155; min-width: 110px; white-space: nowrap; font-weight: 500; }
+.o_sale_dashboard .ar-td-customer {
+    min-width: 200px;
+    white-space: normal !important;
+    word-break: break-word;
+}
+.o_sale_dashboard .ar-ref       { font-size: 10px; color: #475569; font-weight: 500; margin-top: 2px; }
+
+/* Hover row - clean standard hover highlight */
+.o_sale_dashboard .ar-row:hover td { background: #f1f5f9 !important; }
+
+/* Aging body cells - standard clean table styling (no pastel backgrounds or colored text) */
+.o_sale_dashboard .ar-row td.ar-col-1-30,
+.o_sale_dashboard .ar-row td.ar-col-31-60,
+.o_sale_dashboard .ar-row td.ar-col-61-90,
+.o_sale_dashboard .ar-row td.ar-col-91-120,
+.o_sale_dashboard .ar-row td.ar-col-121-150,
+.o_sale_dashboard .ar-row td.ar-col-151-180,
+.o_sale_dashboard .ar-row td.ar-col-older,
+.o_sale_dashboard .ar-row td.ar-col-total,
+.o_sale_dashboard .ar-row td.ar-col-dues {
+    background: transparent !important;
+    color: #0f172a !important;
+    font-weight: 500 !important;
+}
+
+/* Bold for Totals and Dues columns */
+.o_sale_dashboard .ar-row td.ar-col-total,
+.o_sale_dashboard .ar-row td.ar-col-dues {
+    font-weight: 800 !important;
+    color: #1e3a8a !important;
+}
+
+/* Clickable bucket cells hover interaction */
+.o_sale_dashboard .ar-row td.ar-col-1-30:hover,
+.o_sale_dashboard .ar-row td.ar-col-31-60:hover,
+.o_sale_dashboard .ar-row td.ar-col-61-90:hover,
+.o_sale_dashboard .ar-row td.ar-col-91-120:hover,
+.o_sale_dashboard .ar-row td.ar-col-121-150:hover,
+.o_sale_dashboard .ar-row td.ar-col-151-180:hover,
+.o_sale_dashboard .ar-row td.ar-col-older:hover {
+    background: #cbd5e1 !important;
+    cursor: pointer;
+}
+
+/* Footer totals - styled like standard table summary footer */
+.o_sale_dashboard .ar-tfoot-row td {
+    background: #e2e8f0 !important;
+    color: #0f172a !important;
+    font-weight: 800 !important;
+    padding: 8px 10px;
+    font-size: 12px;
+    border-top: 2px solid #475569 !important;
+    border-bottom: 2px solid #475569 !important;
+    border-right: 1px solid #cbd5e1 !important;
+    white-space: nowrap;
+    position: sticky;
+    bottom: 0;
+}
+.o_sale_dashboard .ar-tfoot-row td.ar-td-sticky {
+    z-index: 4;
+}
+
+/* Header summary badges */
+.o_sale_dashboard .ar-meta-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+    background: #f1f5f9;
+    padding: 4px 10px;
+    border-radius: 20px;
+}
+.o_sale_dashboard .ar-summary-badge {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 20px;
+}
+.o_sale_dashboard .ar-summary-badge.ar-green  { background: #dcfce7; color: #15803d; }
+.o_sale_dashboard .ar-summary-badge.ar-orange { background: #ffedd5; color: #9a3412; }
+.o_sale_dashboard .ar-summary-badge.ar-blue   { background: #dbeafe; color: #1d4ed8; }
+
+/* ════════════════════════════════════════════════════════════════════
+   SEGMENT PERFORMANCE TABLE
+   ════════════════════════════════════════════════════════════════════ */
+.o_sale_dashboard .seg-table-wrapper {
+    overflow-x: auto;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.o_sale_dashboard .seg-table {
+    border-collapse: separate;
+    border-spacing: 0;
+    min-width: 1200px;
+    font-size: 12px;
+}
+
+/* Sticky first column */
+.o_sale_dashboard .seg-th-sticky,
+.o_sale_dashboard .seg-td-sticky {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: #fff;
+    width: 320px !important;
+    min-width: 320px !important;
+    max-width: 320px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-right: 2px solid #e2e8f0 !important;
+}
+
+/* Header rows */
+.o_sale_dashboard .seg-thead-row th,
+.o_sale_dashboard .seg-thead-sub th {
+    background: #1e3a8a !important;
+    color: #fff !important;
+    font-weight: 700;
+    padding: 6px 8px;
+    text-align: center;
+    border: 1px solid #1e40af !important;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+}
+
+.o_sale_dashboard .seg-thead-row .seg-th-sticky {
+    z-index: 4;
+    left: 0;
+    text-align: left;
+}
+
+.o_sale_dashboard .seg-thead-sub th {
+    background: #2563eb !important;
+    font-size: 10px;
+    padding: 3px 6px;
+    top: 31px; /* below first header row */
+}
+
+.o_sale_dashboard .seg-thead-sub .seg-th-sticky {
+    z-index: 4;
+}
+
+.o_sale_dashboard .seg-th-month-group {
+    border-left: 2px solid #3b82f6 !important;
+}
+
+.o_sale_dashboard .seg-th-sub {
+    font-size: 10px;
+    font-weight: 600;
+}
+
+/* Data cells */
+.o_sale_dashboard .seg-td {
+    padding: 5px 8px;
+    border: 1px solid #e2e8f0;
+    vertical-align: middle;
+}
+
+.o_sale_dashboard .seg-td-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.o_sale_dashboard .seg-td-month {
+    border-left: 2px solid #e2e8f0 !important;
+    padding: 2px 6px;
+}
+
+/* Month cell: stacked cur / cmp */
+.o_sale_dashboard .seg-month-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+    line-height: 1.1;
+}
+
+.o_sale_dashboard .seg-cur {
+    font-weight: 700;
+    font-size: 12px;
+    color: #1e293b;
+}
+
+.o_sale_dashboard .seg-cmp {
+    font-size: 10px;
+    color: #94a3b8;
+}
+
+/* Row hover */
+.o_sale_dashboard .seg-row:hover td {
+    background-color: #eff6ff !important;
+}
+
+/* Footer totals */
+.o_sale_dashboard .seg-tfoot-row td {
+    background: #f1f5f9 !important;
+    border-top: 2px solid #1e3a8a !important;
+    padding: 6px 8px;
+    border: 1px solid #cbd5e1;
+}
+
+.o_sale_dashboard .seg-tfoot-row .seg-td-sticky {
+    background: #e2e8f0 !important;
+}
+
+/* Growth / AOP badges */
+.o_sale_dashboard .seg-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 11px;
+    text-align: center;
+    min-width: 44px;
+}
+
+.o_sale_dashboard .seg-badge.seg-green  { background: #dcfce7; color: #15803d; }
+.o_sale_dashboard .seg-badge.seg-red    { background: #fee2e2; color: #b91c1c; }
+.o_sale_dashboard .seg-badge.seg-yellow { background: #fef9c3; color: #854d0e; }
+.o_sale_dashboard .seg-badge.seg-na     { background: #f1f5f9; color: #94a3b8; }
+
+/* Segment KPI pills (detail view header) */
+.o_sale_dashboard .seg-kpi-pill {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 8px 18px;
+    min-width: 110px;
+    box-shadow: 0 1px 4px rgba(30,58,138,0.07);
+}
+
+.o_sale_dashboard .seg-kpi-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+}
+
+.o_sale_dashboard .seg-kpi-val {
+    font-size: 18px;
+    font-weight: 800;
+    color: #1e293b;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Clickable TOTAL footer row hover */
+.o_sale_dashboard .seg-tfoot-row.cursor-pointer:hover td {
+    background-color: #dbeafe !important;
+    cursor: pointer;
+}
+
+/* Branches drill-down button inside summary row */
+.o_sale_dashboard .seg-drill-btn {
+    opacity: 0.5;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+}
+.o_sale_dashboard .seg-row:hover .seg-drill-btn {
+    opacity: 1;
+}
+
+/* Hover highlights for individual month columns/subcells */
+.o_sale_dashboard .seg-cell-hover:hover {
+    background-color: #dbeafe !important;
+    color: #1e3a8a !important;
+}
+
+.o_sale_dashboard .seg-subcell-hover:hover {
+    background-color: #dbeafe !important;
+    color: #1e3a8a !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   BRIGHTER FONT ADJUSTMENTS FOR SEGMENT PERFORMANCE TABLE
+   ════════════════════════════════════════════════════════════════════ */
+.o_sale_dashboard .seg-table {
+    color: #0f172a !important; /* Extremely high-contrast dark slate color */
+    font-size: 13px; /* Slightly larger text for clarity */
+}
+
+.o_sale_dashboard .seg-table td {
+    color: #0f172a !important; /* Force high-contrast text for all cells */
+}
+
+.o_sale_dashboard .seg-table .text-muted {
+    color: #334155 !important; /* Much darker gray for readability */
+}
+
+.o_sale_dashboard .seg-table tbody td.text-muted,
+.o_sale_dashboard .seg-table tfoot td.text-muted {
+    color: #334155 !important; /* Darker slate gray for table numbers */
+}
+
+.o_sale_dashboard .seg-table thead th.text-muted {
+    color: #dbeafe !important; /* Brighter, high-contrast light blue for column headers */
+}
+
+.o_sale_dashboard .seg-cmp {
+    color: #334155 !important; /* Make comparison numbers much darker and readable */
+    font-weight: 600; /* Enhance structural weight of comparative values */
+}
+

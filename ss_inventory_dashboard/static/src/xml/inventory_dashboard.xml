@@ -1,0 +1,535 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+    <t t-name="ss_inventory_dashboard.InventoryDashboard" owl="1">
+        <div class="o_inventory_dashboard container-fluid py-4 bg-light">
+            <!-- Header & Filter Panel -->
+            <div class="dashboard-header d-flex flex-column gap-3 mb-4 p-4 bg-white rounded-3 shadow-sm">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h3 class="fw-bold mb-0 text-primary d-flex align-items-center gap-2">
+                        <i class="fa fa-cubes text-warning"/>
+                        Inventory Report Dashboard
+                    </h3>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-secondary btn-sm fw-semibold d-flex align-items-center gap-1" t-on-click="resetFilters">
+                            <i class="fa fa-refresh"/> Reset Filters
+                        </button>
+                        <button class="btn btn-primary btn-sm fw-semibold d-flex align-items-center gap-1" t-on-click="exportToExcel">
+                            <i class="fa fa-file-excel-o"/> Export to Excel
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filters Grid -->
+                <div class="row g-3">
+                    <!-- Date From -->
+                    <div class="col-md-3 col-lg">
+                        <label class="form-label fw-bold text-secondary mb-1">From Date:</label>
+                        <input type="date" class="form-control form-control-sm" t-model="state.filters.date_from" t-on-change="scheduleReload"/>
+                    </div>
+
+                    <!-- Date To -->
+                    <div class="col-md-3 col-lg">
+                        <label class="form-label fw-bold text-secondary mb-1">To Date:</label>
+                        <input type="date" class="form-control form-control-sm" t-model="state.filters.date_to" t-on-change="scheduleReload"/>
+                    </div>
+
+                    <!-- Company Selector -->
+                    <div class="col-md-3 col-lg position-relative" id="company-dropdown-container">
+                        <label class="form-label fw-bold text-secondary mb-1">Company:</label>
+                        <div class="dropdown">
+                            <button class="btn btn-light btn-sm w-100 border text-start d-flex justify-content-between align-items-center" t-on-click="() => this.toggleDropdown('company')">
+                                <span class="text-truncate"><t t-esc="getSelectedLabel('company_ids', 'All Companies')"/></span>
+                                <i class="fa fa-caret-down text-muted"/>
+                            </button>
+                            <div class="dropdown-menu w-100 p-2 shadow-sm" t-att-class="{show: state.dropdowns.company.isOpen}" style="max-height: 250px; overflow-y: auto; z-index: 1050;">
+                                <input type="text" class="form-control form-control-sm mb-2" placeholder="Search Company..." t-model="state.dropdowns.company.search"/>
+                                <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+                                    <button class="btn btn-link btn-xs p-0 text-decoration-none fw-bold text-primary" t-on-click="() => this.selectAllFiltered('company', 'company_ids')"><i class="fa fa-check-square-o"/> Select All</button>
+                                    <button class="btn btn-link btn-xs p-0 text-decoration-none fw-bold text-danger" t-on-click="() => this.clearAll('company_ids')"><i class="fa fa-times"/> Clear</button>
+                                </div>
+                                <div class="dropdown-list-items">
+                                    <t t-foreach="getFilteredList('company')" t-as="comp" t-key="comp.id">
+                                        <div class="form-check py-1 cursor-pointer" t-on-click="() => this.toggleSelection('company_ids', comp.id)">
+                                            <input class="form-check-input" type="checkbox" t-att-checked="state.filters.company_ids.includes(comp.id)"/>
+                                            <label class="form-check-label text-dark fw-semibold cursor-pointer"><t t-esc="comp.name"/></label>
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Warehouse Selector -->
+                    <div class="col-md-3 col-lg position-relative" id="warehouse-dropdown-container">
+                        <label class="form-label fw-bold text-secondary mb-1">Warehouse:</label>
+                        <div class="dropdown">
+                            <button class="btn btn-light btn-sm w-100 border text-start d-flex justify-content-between align-items-center" t-on-click="() => this.toggleDropdown('warehouse')">
+                                <span class="text-truncate"><t t-esc="getSelectedLabel('warehouse_ids', 'All Warehouses')"/></span>
+                                <i class="fa fa-caret-down text-muted"/>
+                            </button>
+                            <div class="dropdown-menu w-100 p-2 shadow-sm" t-att-class="{show: state.dropdowns.warehouse.isOpen}" style="max-height: 250px; overflow-y: auto; z-index: 1050;">
+                                <input type="text" class="form-control form-control-sm mb-2" placeholder="Search Warehouse..." t-model="state.dropdowns.warehouse.search"/>
+                                <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+                                    <button class="btn btn-link btn-xs p-0 text-decoration-none fw-bold text-primary" t-on-click="() => this.selectAllFiltered('warehouse', 'warehouse_ids')"><i class="fa fa-check-square-o"/> Select All</button>
+                                    <button class="btn btn-link btn-xs p-0 text-decoration-none fw-bold text-danger" t-on-click="() => this.clearAll('warehouse_ids')"><i class="fa fa-times"/> Clear</button>
+                                </div>
+                                <div class="dropdown-list-items">
+                                    <t t-foreach="getFilteredList('warehouse')" t-as="wh" t-key="wh.id">
+                                        <div class="form-check py-1 cursor-pointer" t-on-click="() => this.toggleSelection('warehouse_ids', wh.id)">
+                                            <input class="form-check-input" type="checkbox" t-att-checked="state.filters.warehouse_ids.includes(wh.id)"/>
+                                            <label class="form-check-label text-dark fw-semibold cursor-pointer"><t t-esc="wh.name"/></label>
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product Category Selector -->
+                    <div class="col-md-3 col-lg position-relative" id="category-dropdown-container">
+                        <label class="form-label fw-bold text-secondary mb-1">Category:</label>
+                        <div class="dropdown">
+                            <button class="btn btn-light btn-sm w-100 border text-start d-flex justify-content-between align-items-center" t-on-click="() => this.toggleDropdown('category')">
+                                <span class="text-truncate"><t t-esc="getSelectedLabel('category_ids', 'All Categories')"/></span>
+                                <i class="fa fa-caret-down text-muted"/>
+                            </button>
+                            <div class="dropdown-menu w-100 p-2 shadow-sm" t-att-class="{show: state.dropdowns.category.isOpen}" style="max-height: 250px; overflow-y: auto; z-index: 1050;">
+                                <input type="text" class="form-control form-control-sm mb-2" placeholder="Search Category..." t-model="state.dropdowns.category.search"/>
+                                <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+                                    <button class="btn btn-link btn-xs p-0 text-decoration-none fw-bold text-primary" t-on-click="() => this.selectAllFiltered('category', 'category_ids')"><i class="fa fa-check-square-o"/> Select All</button>
+                                    <button class="btn btn-link btn-xs p-0 text-decoration-none fw-bold text-danger" t-on-click="() => this.clearAll('category_ids')"><i class="fa fa-times"/> Clear</button>
+                                </div>
+                                <div class="dropdown-list-items">
+                                    <t t-foreach="getFilteredList('category')" t-as="cat" t-key="cat.id">
+                                        <div class="form-check py-1 cursor-pointer" t-on-click="() => this.toggleSelection('category_ids', cat.id)">
+                                            <input class="form-check-input" type="checkbox" t-att-checked="state.filters.category_ids.includes(cat.id)"/>
+                                            <label class="form-check-label text-dark fw-semibold cursor-pointer"><t t-esc="cat.complete_name || cat.name"/></label>
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product Selector -->
+                    <div class="col-md-3 col-lg position-relative" id="product-dropdown-container">
+                        <label class="form-label fw-bold text-secondary mb-1">Product:</label>
+                        <div class="dropdown">
+                            <button class="btn btn-light btn-sm w-100 border text-start d-flex justify-content-between align-items-center" t-on-click="() => this.toggleDropdown('product')">
+                                <span class="text-truncate"><t t-esc="getSelectedLabel('product_ids', 'All Products')"/></span>
+                                <i class="fa fa-caret-down text-muted"/>
+                            </button>
+                            <div class="dropdown-menu w-100 p-2 shadow-sm" t-att-class="{show: state.dropdowns.product.isOpen}" style="max-height: 250px; overflow-y: auto; z-index: 1050;">
+                                <input type="text" class="form-control form-control-sm mb-2" placeholder="Search Product..." t-model="state.dropdowns.product.search"/>
+                                <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+                                    <button class="btn btn-link btn-xs p-0 text-decoration-none fw-bold text-primary" t-on-click="() => this.selectAllFiltered('product', 'product_ids')"><i class="fa fa-check-square-o"/> Select All</button>
+                                    <button class="btn btn-link btn-xs p-0 text-decoration-none fw-bold text-danger" t-on-click="() => this.clearAll('product_ids')"><i class="fa fa-times"/> Clear</button>
+                                </div>
+                                <div class="dropdown-list-items">
+                                    <t t-foreach="getFilteredList('product')" t-as="prod" t-key="prod.id">
+                                        <div class="form-check py-1 cursor-pointer" t-on-click="() => this.toggleSelection('product_ids', prod.id)">
+                                            <input class="form-check-input" type="checkbox" t-att-checked="state.filters.product_ids.includes(prod.id)"/>
+                                            <label class="form-check-label text-dark fw-semibold cursor-pointer"><t t-esc="prod.name"/></label>
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Partner/Supplier Selector -->
+                    <div class="col-md-3 col-lg position-relative" id="partner-dropdown-container">
+                        <label class="form-label fw-bold text-secondary mb-1">Supplier:</label>
+                        <div class="dropdown">
+                            <button class="btn btn-light btn-sm w-100 border text-start d-flex justify-content-between align-items-center" t-on-click="() => this.toggleDropdown('partner')">
+                                <span class="text-truncate"><t t-esc="getSelectedLabel('partner_ids', 'All Suppliers')"/></span>
+                                <i class="fa fa-caret-down text-muted"/>
+                            </button>
+                            <div class="dropdown-menu w-100 p-2 shadow-sm" t-att-class="{show: state.dropdowns.partner.isOpen}" style="max-height: 250px; overflow-y: auto; z-index: 1050;">
+                                <input type="text" class="form-control form-control-sm mb-2" placeholder="Search Supplier..." t-model="state.dropdowns.partner.search"/>
+                                <div class="d-flex justify-content-between align-items-center mb-2 px-1">
+                                    <button class="btn btn-link btn-xs p-0 text-decoration-none fw-bold text-primary" t-on-click="() => this.selectAllFiltered('partner', 'partner_ids')"><i class="fa fa-check-square-o"/> Select All</button>
+                                    <button class="btn btn-link btn-xs p-0 text-decoration-none fw-bold text-danger" t-on-click="() => this.clearAll('partner_ids')"><i class="fa fa-times"/> Clear</button>
+                                </div>
+                                <div class="dropdown-list-items">
+                                    <t t-foreach="getFilteredList('partner')" t-as="partner" t-key="partner.id">
+                                        <div class="form-check py-1 cursor-pointer" t-on-click="() => this.toggleSelection('partner_ids', partner.id)">
+                                            <input class="form-check-input" type="checkbox" t-att-checked="state.filters.partner_ids.includes(partner.id)"/>
+                                            <label class="form-check-label text-dark fw-semibold cursor-pointer"><t t-esc="partner.name"/></label>
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic KPI Summary Section -->
+            <t t-if="!state.loading">
+                <!-- Row 1: Inventory Flow KPIs -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <div class="kpi-card p-3 bg-white rounded-3 border shadow-sm d-flex align-items-center justify-content-between">
+                            <div>
+                                <span class="text-secondary fw-semibold fs-7 text-uppercase">Opening Value</span>
+                                <h4 class="fw-bold mb-0 text-dark mt-1">₹<t t-esc="(state.kpis.opening_value || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})"/></h4>
+                            </div>
+                            <div class="kpi-icon-bg bg-primary-light text-primary">
+                                <i class="fa fa-folder-open-o fa-lg"/>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="kpi-card p-3 bg-white rounded-3 border shadow-sm d-flex align-items-center justify-content-between">
+                            <div>
+                                <span class="text-secondary fw-semibold fs-7 text-uppercase">GRN Value</span>
+                                <h4 class="fw-bold mb-0 text-success mt-1">₹<t t-esc="(state.kpis.grn_value || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})"/></h4>
+                            </div>
+                            <div class="kpi-icon-bg bg-success-light text-success">
+                                <i class="fa fa-download fa-lg"/>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="kpi-card p-3 bg-white rounded-3 border shadow-sm d-flex align-items-center justify-content-between">
+                            <div>
+                                <span class="text-secondary fw-semibold fs-7 text-uppercase">Stock Issue Value</span>
+                                <h4 class="fw-bold mb-0 text-danger mt-1">₹<t t-esc="(state.kpis.issue_value || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})"/></h4>
+                            </div>
+                            <div class="kpi-icon-bg bg-danger-light text-danger">
+                                <i class="fa fa-upload fa-lg"/>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="kpi-card p-3 bg-white rounded-3 border shadow-sm d-flex align-items-center justify-content-between">
+                            <div>
+                                <span class="text-secondary fw-semibold fs-7 text-uppercase">Closing Value</span>
+                                <h4 class="fw-bold mb-0 text-dark mt-1">₹<t t-esc="(state.kpis.closing_value || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})"/></h4>
+                            </div>
+                            <div class="kpi-icon-bg bg-dark-light text-dark">
+                                <i class="fa fa-archive fa-lg"/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 2: Stock Ageing KPIs -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3">
+                        <div class="kpi-card p-3 bg-white rounded-3 border shadow-sm d-flex align-items-center justify-content-between">
+                            <div>
+                                <span class="text-secondary fw-semibold fs-7 text-uppercase">Aged 0-30 Days</span>
+                                <h4 class="fw-bold mb-0 text-dark mt-1">₹<t t-esc="(state.kpis.ageing_30 || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})"/></h4>
+                            </div>
+                            <div class="kpi-icon-bg bg-success-light text-success">
+                                <i class="fa fa-clock-o fa-lg"/>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="kpi-card p-3 bg-white rounded-3 border shadow-sm d-flex align-items-center justify-content-between">
+                            <div>
+                                <span class="text-secondary fw-semibold fs-7 text-uppercase">Aged 31-90 Days</span>
+                                <h4 class="fw-bold mb-0 text-dark mt-1">₹<t t-esc="((state.kpis.ageing_60 || 0) + (state.kpis.ageing_90 || 0)).toLocaleString('en-IN', {maximumFractionDigits: 0})"/></h4>
+                            </div>
+                            <div class="kpi-icon-bg bg-warning-light text-warning">
+                                <i class="fa fa-hourglass-half fa-lg"/>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="kpi-card p-3 bg-white rounded-3 border shadow-sm d-flex align-items-center justify-content-between">
+                            <div>
+                                <span class="text-secondary fw-semibold fs-7 text-uppercase">Aged 91-180 Days</span>
+                                <h4 class="fw-bold mb-0 text-dark mt-1">₹<t t-esc="((state.kpis.ageing_120 || 0) + (state.kpis.ageing_150 || 0) + (state.kpis.ageing_180 || 0)).toLocaleString('en-IN', {maximumFractionDigits: 0})"/></h4>
+                            </div>
+                            <div class="kpi-icon-bg bg-orange-light text-orange-custom">
+                                <i class="fa fa-exclamation-triangle fa-lg"/>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="kpi-card p-3 bg-white rounded-3 border shadow-sm d-flex align-items-center justify-content-between">
+                            <div>
+                                <span class="text-secondary fw-semibold fs-7 text-uppercase">Aged Above 180 Days</span>
+                                <h4 class="fw-bold mb-0 text-danger mt-1">₹<t t-esc="((state.kpis.ageing_360 || 0) + (state.kpis.ageing_above || 0)).toLocaleString('en-IN', {maximumFractionDigits: 0})"/></h4>
+                            </div>
+                            <div class="kpi-icon-bg bg-danger-light text-danger">
+                                <i class="fa fa-ban fa-lg"/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </t>
+
+            <!-- Tabs Control Navigation -->
+            <div class="dashboard-tabs d-flex gap-2 border-bottom mb-4">
+                <button class="tab-btn px-4 py-2 fw-bold border-0 bg-transparent" t-att-class="{active: state.activeTab === 'inventory_status'}" t-on-click="() => this.switchTab('inventory_status')">
+                    Inventory Status
+                </button>
+                <button class="tab-btn px-4 py-2 fw-bold border-0 bg-transparent" t-att-class="{active: state.activeTab === 'stock_ledger'}" t-on-click="() => this.switchTab('stock_ledger')">
+                    Stock Ledger
+                </button>
+                <button class="tab-btn px-4 py-2 fw-bold border-0 bg-transparent" t-att-class="{active: state.activeTab === 'ageing_analysis'}" t-on-click="() => this.switchTab('ageing_analysis')">
+                    Ageing Analysis
+                </button>
+                <button class="tab-btn px-4 py-2 fw-bold border-0 bg-transparent" t-att-class="{active: state.activeTab === 'pending_po'}" t-on-click="() => this.switchTab('pending_po')">
+                    Pending Purchase Orders
+                </button>
+            </div>
+
+            <!-- Full page Loader Spinner (only on first load) -->
+            <t t-if="state.loading">
+                <div class="d-flex justify-content-center align-items-center py-5">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary mb-3" role="status" style="width: 3rem; height: 3rem;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted fw-semibold">Loading dashboard data...</p>
+                    </div>
+                </div>
+            </t>
+
+            <!-- Main Reports Render -->
+            <t t-else="">
+                <!-- Per-tab loading overlay -->
+                <t t-if="state.reportLoading">
+                    <div class="d-flex justify-content-center align-items-center py-4">
+                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status"/>
+                        <span class="text-muted">Refreshing report...</span>
+                    </div>
+                </t>
+                <t t-else="">
+                <!-- Local Search Input per Tab -->
+                <div class="d-flex justify-content-end mb-3">
+                    <div class="search-box position-relative" style="width: 300px;">
+                        <input type="text" class="form-control form-control-sm ps-4" placeholder="Search table..." t-model="state.searchQueries[state.activeTab]"/>
+                        <i class="fa fa-search position-absolute text-muted" style="left: 10px; top: 50%; transform: translateY(-50%);"/>
+                    </div>
+                </div>
+
+                <!-- 1. Inventory Status Tab -->
+                <t t-if="state.activeTab === 'inventory_status'">
+                    <div class="card shadow-sm border-0 rounded-3 overflow-hidden">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0">
+                                <thead class="table-dark-custom text-white">
+                                    <tr>
+                                        <th>Item Code</th>
+                                        <th>Item Description</th>
+                                        <th class="text-end">Opening Qty</th>
+                                        <th class="text-end">Opening Value</th>
+                                        <th class="text-end">Receipt Qty</th>
+                                        <th class="text-end">Receipt Value</th>
+                                        <th class="text-end">Issue Qty</th>
+                                        <th class="text-end">Issue Value</th>
+                                        <th class="text-end">Closing Qty</th>
+                                        <th class="text-end">Closing Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-if="getFilteredReportData('inventory_status').length === 0">
+                                        <tr>
+                                            <td colspan="10" class="text-center py-4 text-muted fst-italic">No stock entries found</td>
+                                        </tr>
+                                    </t>
+                                     <t t-foreach="getFilteredReportData('inventory_status')" t-as="item" t-key="item.product_id">
+                                        <tr class="cursor-pointer">
+                                            <!-- General Details click opens general moves -->
+                                            <td class="fw-bold text-dark" t-on-click="() => this.drillInventoryStatus(item)" title="Click to view all stock moves"><t t-esc="item.item_code || 'N/A'"/></td>
+                                            <td t-on-click="() => this.drillInventoryStatus(item)" title="Click to view all stock moves"><t t-esc="item.item_name"/></td>
+                                            <td class="text-end" t-on-click="() => this.drillInventoryStatus(item)" title="Click to view all stock moves"><t t-esc="(item.opening_qty || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})"/></td>
+                                            <td class="text-end text-primary fw-semibold" t-on-click="() => this.drillInventoryStatus(item)" title="Click to view all stock moves">₹<t t-esc="(item.opening_val || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})"/></td>
+                                            
+                                            <!-- Receipt Qty & Value click opens completed receipts -->
+                                            <td class="text-end cell-clickable-receipt bg-light-success-hover fw-semibold" t-on-click="(ev) => this.drillReceipts(item, ev)" title="Click to view completed receipts"><t t-esc="(item.receipt_qty || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})"/></td>
+                                            <td class="text-end text-success fw-semibold cell-clickable-receipt bg-light-success-hover" t-on-click="(ev) => this.drillReceipts(item, ev)" title="Click to view completed receipts">₹<t t-esc="(item.receipt_val || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})"/></td>
+                                            
+                                            <!-- Issue Qty & Value click opens outgoing stock history & location destinations -->
+                                            <td class="text-end cell-clickable-issue bg-light-danger-hover fw-semibold" t-on-click="(ev) => this.drillIssues(item, ev)" title="Click to view stock issue history &amp; destinations"><t t-esc="(item.issue_qty || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})"/></td>
+                                            <td class="text-end text-danger fw-semibold cell-clickable-issue bg-light-danger-hover" t-on-click="(ev) => this.drillIssues(item, ev)" title="Click to view stock issue history &amp; destinations">₹<t t-esc="(item.issue_val || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})"/></td>
+                                            
+                                            <!-- Closing Qty & Value click opens general moves -->
+                                            <td class="text-end fw-bold" t-on-click="() => this.drillInventoryStatus(item)" title="Click to view all stock moves"><t t-esc="(item.closing_qty || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})"/></td>
+                                            <td class="text-end fw-bold text-dark" t-on-click="() => this.drillInventoryStatus(item)" title="Click to view all stock moves">₹<t t-esc="(item.closing_val || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </t>
+
+                <!-- 2. Stock Ledger Tab -->
+                <t t-if="state.activeTab === 'stock_ledger'">
+                    <div class="card shadow-sm border-0 rounded-3 overflow-hidden">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0">
+                                <thead class="table-dark-custom text-white">
+                                                                <tr>
+                                        <th>Item Code</th>
+                                        <th>Item Description</th>
+                                        <th>Date</th>
+                                        <th>Reference</th>
+                                        <th>Partner</th>
+                                        <th>Lot/Serial Number</th>
+                                        <th class="text-end">Opening Qty</th>
+                                        <th class="text-end">Receipt Qty</th>
+                                        <th class="text-end">Issue Qty</th>
+                                        <th class="text-end">Closing Qty</th>
+                                        <th class="text-end">Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-if="getFilteredReportData('stock_ledger').length === 0">
+                                        <tr>
+                                            <td colspan="11" class="text-center py-4 text-muted fst-italic">No transaction ledger lines found</td>
+                                        </tr>
+                                    </t>
+                                    <t t-foreach="getFilteredReportData('stock_ledger')" t-as="line" t-key="line_index">
+                                        <tr class="cursor-pointer" t-on-click="() => this.drillStockLedger(line)" title="Click to view stock moves">
+                                            <td class="fw-bold text-dark"><t t-esc="line.item_code"/></td>
+                                            <td><t t-esc="line.item_name"/></td>
+                                            <td class="text-nowrap text-secondary"><t t-esc="line.date"/></td>
+                                            <td class="text-nowrap fw-semibold text-primary"><t t-esc="line.reference"/></td>
+                                            <td><t t-esc="line.partner"/></td>
+                                            <td><t t-esc="line.lot_name || ''"/></td>
+                                            <td class="text-end"><t t-esc="(line.opening_qty || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})"/></td>
+                                            <td class="text-end text-success"><t t-esc="(line.receipt_qty || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})"/></td>
+                                            <td class="text-end text-danger"><t t-esc="(line.issue_qty || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})"/></td>
+                                            <td class="text-end fw-bold"><t t-esc="(line.closing_qty || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})"/></td>
+                                            <td class="text-end fw-bold text-dark">₹<t t-esc="(line.value || 0).toLocaleString('en-IN', {minimumFractionDigits: 2})"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </t>
+
+                <!-- 3. Ageing Analysis Tab -->
+                <t t-if="state.activeTab === 'ageing_analysis'">
+                    <div class="card shadow-sm border-0 rounded-3 overflow-hidden">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0 text-nowrap">
+                                <thead class="table-dark-custom text-white text-center">
+                                    <tr>
+                                        <th rowspan="2" class="align-middle text-start">Item Code</th>
+                                        <th rowspan="2" class="align-middle text-start">Item Description</th>
+                                        <th colspan="2">Total</th>
+                                        <th colspan="2">30 Days</th>
+                                        <th colspan="2">60 Days</th>
+                                        <th colspan="2">90 Days</th>
+                                        <th colspan="2">120 Days</th>
+                                        <th colspan="2">150 Days</th>
+                                        <th colspan="2">180 Days</th>
+                                        <th colspan="2">360 Days</th>
+                                        <th colspan="2">Above 360 Days</th>
+                                    </tr>
+                                    <tr class="sub-headers">
+                                        <th>Qty</th><th>Value</th>
+                                        <th>Qty</th><th>Value</th>
+                                        <th>Qty</th><th>Value</th>
+                                        <th>Qty</th><th>Value</th>
+                                        <th>Qty</th><th>Value</th>
+                                        <th>Qty</th><th>Value</th>
+                                        <th>Qty</th><th>Value</th>
+                                        <th>Qty</th><th>Value</th>
+                                        <th>Qty</th><th>Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-if="getFilteredReportData('ageing_analysis').length === 0">
+                                        <tr>
+                                            <td colspan="20" class="text-center py-4 text-muted fst-italic">No stock ageing records found</td>
+                                        </tr>
+                                    </t>
+                                    <t t-foreach="getFilteredReportData('ageing_analysis')" t-as="item" t-key="item.item_code">
+                                        <tr class="cursor-pointer" t-on-click="() => this.drillAgeingAnalysis(item)" title="Click to view stock on hand">
+                                            <td class="fw-bold text-dark text-start"><t t-esc="item.item_code"/></td>
+                                            <td class="text-start"><t t-esc="item.item_name"/></td>
+                                            
+                                            <!-- Total -->
+                                            <td class="text-end fw-bold"><t t-esc="(item.total_qty || 0).toLocaleString('en-IN')"/></td>
+                                            <td class="text-end fw-bold text-dark">₹<t t-esc="(item.total_val || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})"/></td>
+                                            
+                                            <!-- 30 Days -->
+                                            <td class="text-end"><t t-esc="(item.qty_30 || 0).toLocaleString('en-IN')"/></td>
+                                            <td class="text-end text-muted">₹<t t-esc="(item.val_30 || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})"/></td>
+                                            
+                                            <!-- 60 Days -->
+                                            <td class="text-end"><t t-esc="(item.qty_60 || 0).toLocaleString('en-IN')"/></td>
+                                            <td class="text-end text-muted">₹<t t-esc="(item.val_60 || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})"/></td>
+                                            
+                                            <!-- 90 Days -->
+                                            <td class="text-end"><t t-esc="(item.qty_90 || 0).toLocaleString('en-IN')"/></td>
+                                            <td class="text-end text-muted">₹<t t-esc="(item.val_90 || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})"/></td>
+                                            
+                                            <!-- 120 Days -->
+                                            <td class="text-end"><t t-esc="(item.qty_120 || 0).toLocaleString('en-IN')"/></td>
+                                            <td class="text-end text-muted">₹<t t-esc="(item.val_120 || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})"/></td>
+                                            
+                                            <!-- 150 Days -->
+                                            <td class="text-end"><t t-esc="(item.qty_150 || 0).toLocaleString('en-IN')"/></td>
+                                            <td class="text-end text-muted">₹<t t-esc="(item.val_150 || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})"/></td>
+                                            
+                                            <!-- 180 Days -->
+                                            <td class="text-end"><t t-esc="(item.qty_180 || 0).toLocaleString('en-IN')"/></td>
+                                            <td class="text-end text-muted">₹<t t-esc="(item.val_180 || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})"/></td>
+                                            
+                                            <!-- 360 Days -->
+                                            <td class="text-end"><t t-esc="(item.qty_360 || 0).toLocaleString('en-IN')"/></td>
+                                            <td class="text-end text-muted">₹<t t-esc="(item.val_360 || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})"/></td>
+                                            
+                                            <!-- Above 360 Days -->
+                                            <td class="text-end fw-semibold text-danger"><t t-esc="(item.qty_above || 0).toLocaleString('en-IN')"/></td>
+                                            <td class="text-end fw-semibold text-danger">₹<t t-esc="(item.val_above || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </t>
+
+                <!-- 4. Pending Purchase Orders Tab -->
+                <t t-if="state.activeTab === 'pending_po'">
+                    <div class="card shadow-sm border-0 rounded-3 overflow-hidden">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0">
+                                <thead class="table-dark-custom text-white">
+                                    <tr>
+                                        <th>Item Code</th>
+                                        <th>Supplier/Vendor Name</th>
+                                        <th>Item Description</th>
+                                        <th class="text-end">PO Qty</th>
+                                        <th class="text-end">Balance PO Qty</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <t t-if="getFilteredReportData('pending_po').length === 0">
+                                        <tr>
+                                            <td colspan="5" class="text-center py-4 text-muted fst-italic">No pending Purchase Orders found</td>
+                                        </tr>
+                                    </t>
+                                    <t t-foreach="getFilteredReportData('pending_po')" t-as="po" t-key="po_index">
+                                        <tr class="cursor-pointer" t-on-click="() => this.drillPendingPO(po)" title="Click to view PO lines">
+                                            <td class="fw-bold text-dark"><t t-esc="po.item_code || 'N/A'"/></td>
+                                            <td class="fw-semibold text-primary"><t t-esc="po.partner_name"/></td>
+                                            <td><t t-esc="po.item_description"/></td>
+                                            <td class="text-end"><t t-esc="(po.po_qty || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})"/></td>
+                                            <td class="text-end fw-bold text-warning"><t t-esc="(po.balance_po_qty || 0).toLocaleString('en-IN', {maximumFractionDigits: 0})"/></td>
+                                        </tr>
+                                    </t>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </t>
+                </t><!-- end t-else reportLoading -->
+            </t>
+        </div>
+    </t>
+</templates>

@@ -1,0 +1,203 @@
+/* Custom Premium Styles for Inventory Dashboard */
+
+/* ═══════════════════════════════════════════════════════════════
+   SCROLL FIX — Odoo 18 uses flex+overflow:hidden on .o_action
+   We must restore scrolling for our client action.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* The action manager wraps our component; allow it to scroll */
+.o_action_manager {
+    overflow-y: auto !important;
+}
+
+/* The o_action container Odoo creates for client actions */
+.o_action {
+    overflow-y: auto !important;
+    flex: 1 1 auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+}
+
+/* Our root dashboard element — grows naturally, never clips */
+.o_inventory_dashboard {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: #334155;
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 100vh;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Header styling
+   ═══════════════════════════════════════════════════════════════ */
+.dashboard-header {
+    border: 1px solid #e2e8f0;
+    transition: all 0.3s ease;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Custom Dropdown list item style
+   ═══════════════════════════════════════════════════════════════ */
+.o_inventory_dashboard .dropdown-list-items {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.o_inventory_dashboard .dropdown-list-items::-webkit-scrollbar {
+    width: 6px;
+}
+
+.o_inventory_dashboard .dropdown-list-items::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+.o_inventory_dashboard .dropdown-list-items::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.o_inventory_dashboard .cursor-pointer {
+    cursor: pointer;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Tabs Styling
+   ═══════════════════════════════════════════════════════════════ */
+.o_inventory_dashboard .dashboard-tabs {
+    border-color: #cbd5e1 !important;
+}
+
+.o_inventory_dashboard .tab-btn {
+    color: #64748b;
+    border-bottom: 3px solid transparent !important;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+    outline: none !important;
+}
+
+.o_inventory_dashboard .tab-btn:hover {
+    color: #1e3a8a;
+    background-color: #f8fafc;
+}
+
+.o_inventory_dashboard .tab-btn.active {
+    color: #1e3a8a !important;
+    border-bottom-color: #3b82f6 !important;
+    background-color: #f1f5f9 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Table Custom Headers
+   ═══════════════════════════════════════════════════════════════ */
+.o_inventory_dashboard .table-dark-custom {
+    background-color: #1e293b !important;
+}
+
+.o_inventory_dashboard .table-dark-custom th {
+    font-weight: 600;
+    font-size: 13px;
+    padding: 10px 12px !important;
+    border: 1px solid #334155 !important;
+    letter-spacing: 0.5px;
+}
+
+/* Ageing analysis subheaders */
+.o_inventory_dashboard .sub-headers th {
+    background-color: #334155 !important;
+    font-size: 11px;
+    padding: 6px 10px !important;
+    border: 1px solid #475569 !important;
+}
+
+/* Table rows styling — clickable rows get a blue left border on hover */
+.o_inventory_dashboard .table tbody tr {
+    transition: background-color 0.15s ease, border-left-color 0.15s ease;
+    border-left: 3px solid transparent;
+}
+
+.o_inventory_dashboard .table tbody tr.cursor-pointer:hover {
+    background-color: #eff6ff !important;
+    border-left: 3px solid #3b82f6 !important;
+}
+
+/* Specific Cell Hovers */
+.o_inventory_dashboard .cell-clickable-receipt {
+    transition: all 0.2s ease;
+}
+.o_inventory_dashboard .cell-clickable-receipt:hover {
+    background-color: #d1fae5 !important; /* light green */
+    color: #065f46 !important;
+    font-weight: bold;
+}
+
+.o_inventory_dashboard .cell-clickable-issue {
+    transition: all 0.2s ease;
+}
+.o_inventory_dashboard .cell-clickable-issue:hover {
+    background-color: #fee2e2 !important; /* light red */
+    color: #991b1b !important;
+    font-weight: bold;
+}
+
+.o_inventory_dashboard .table tbody td {
+    font-size: 13px;
+    padding: 8px 12px !important;
+    border: 1px solid #e2e8f0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Form inputs styling
+   ═══════════════════════════════════════════════════════════════ */
+.o_inventory_dashboard .form-label {
+    font-size: 12px;
+    letter-spacing: 0.2px;
+}
+
+.o_inventory_dashboard .form-control-sm, 
+.o_inventory_dashboard .btn-sm {
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.o_inventory_dashboard .form-control-sm:focus {
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+/* Custom Search Box */
+.o_inventory_dashboard .search-box input {
+    border-radius: 20px;
+    padding-left: 30px !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   KPI Summary Cards Styles
+   ═══════════════════════════════════════════════════════════════ */
+.o_inventory_dashboard .kpi-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border-color: #e2e8f0 !important;
+}
+
+.o_inventory_dashboard .kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+}
+
+.o_inventory_dashboard .kpi-icon-bg {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.o_inventory_dashboard .bg-primary-light { background-color: #eff6ff; }
+.o_inventory_dashboard .bg-success-light { background-color: #ecfdf5; }
+.o_inventory_dashboard .bg-danger-light { background-color: #fef2f2; }
+.o_inventory_dashboard .bg-dark-light { background-color: #f1f5f9; }
+.o_inventory_dashboard .bg-warning-light { background-color: #fffbeb; }
+.o_inventory_dashboard .bg-orange-light { background-color: #fff7ed; }
+.o_inventory_dashboard .text-orange-custom { color: #ea580c !important; }
+.o_inventory_dashboard .fs-7 { font-size: 11px; letter-spacing: 0.5px; }
