@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Custom client action for the OWL Inventory Dashboard -->
+    <record id="action_zunax_inventory_dashboard" model="ir.actions.client">
+        <field name="name">Inventory Dashboard</field>
+        <field name="tag">zunax_inventory_dashboard_tag</field>
+        <field name="target">current</field>
+    </record>
+
+    <!-- Custom list view for stock.quant in dashboard -->
+    <record id="view_zunax_stock_quant_tree" model="ir.ui.view">
+        <field name="name">zunax.stock.quant.tree</field>
+        <field name="model">stock.quant</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="Stock Valuation" create="false" edit="false" delete="false">
+                <field name="product_id" string="Product Name"/>
+                <field name="product_code" string="Product Code"/>
+                <field name="product_categ_id" string="Product Category"/>
+                <field name="location_id" string="Location"/>
+                <field name="lot_id" string="Lot/Serial Number"/>
+                <field name="quantity" string="Qty" sum="Total Quantity"/>
+                <field name="value" string="Value" sum="Total Value"/>
+                <field name="unit_price" string="Unit Price"/>
+                <button name="action_view_stock_moves" string="History" type="object" class="btn-link" icon="fa-history"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Custom list view for opening historical stock valuation -->
+    <record id="view_zunax_opening_valuation_tree" model="ir.ui.view">
+        <field name="name">zunax.opening.valuation.tree</field>
+        <field name="model">zunax.opening.valuation.line</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="Opening Stock Valuation" create="false" edit="false" delete="false">
+                <field name="product_id" string="Product Name"/>
+                <field name="product_code" string="Product Code"/>
+                <field name="product_categ_id" string="Product Category"/>
+                <field name="location_id" string="Location"/>
+                <field name="lot_id" string="Lot/Serial Number"/>
+                <field name="quantity" string="Qty" sum="Total Quantity"/>
+                <field name="value" string="Value" sum="Total Value"/>
+                <field name="unit_price" string="Unit Price"/>
+                <button name="action_view_stock_moves" string="History" type="object" class="btn-link" icon="fa-history"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_zunax_opening_valuation_lines" model="ir.actions.act_window">
+        <field name="name">Opening Stock Valuation</field>
+        <field name="res_model">zunax.opening.valuation.line</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="view_zunax_opening_valuation_tree"/>
+        <field name="target">current</field>
+    </record>
+
+    <!-- Custom list view for stock.move in GRN/Issue drilldowns -->
+    <record id="view_zunax_stock_move_tree" model="ir.ui.view">
+        <field name="name">zunax.stock.move.tree</field>
+        <field name="model">stock.move</field>
+        <field name="priority">99</field>
+        <field name="arch" type="xml">
+            <list string="Stock Moves" create="false" edit="false" delete="false">
+                <field name="reference" string="Reference"/>
+                <field name="product_id" string="Product"/>
+                <field name="location_id" string="From Location"/>
+                <field name="location_dest_id" string="To Location"/>
+                <field name="quantity" string="Qty" sum="Total Quantity"/>
+                <field name="display_price_unit" string="Unit Price"/>
+                <field name="zunax_subtotal" string="Value" sum="Total Value"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Menu Item under Inventory -> Reporting -->
+    <menuitem id="menu_zunax_inventory_dashboard"
+              name="Inventory Dashboard"
+              action="action_zunax_inventory_dashboard"
+              parent="stock.menu_warehouse_report"
+              sequence="1"/>
+</odoo>

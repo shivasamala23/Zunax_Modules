@@ -1,0 +1,237 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+    <t t-name="zunax_inventory_dashboard.InventoryDashboard" owl="1">
+        <Layout className="'o_zunax_inventory_dashboard'" display="display">
+            <t t-set-slot="control-panel-create-button">
+                <button class="btn btn-secondary" t-on-click="refreshDashboard" t-att-disabled="state.isRefreshing">
+                    <i t-att-class="state.isRefreshing ? 'fa fa-spinner fa-spin mr-2' : 'fa fa-refresh mr-2'"/> Refresh
+                </button>
+            </t>
+
+            <div class="ss-dashboard" t-on-click="closeDropdowns">
+                <!-- Page Loading Spinner -->
+                <t t-if="state.loading">
+                    <div class="ss-dashboard-loading">
+                        <div class="ss-spinner"></div>
+                        <p>Loading Inventory Dashboard...</p>
+                    </div>
+                </t>
+
+                <t t-else="">
+                    <!-- Global Filter Bar -->
+                    <div class="ss-filter-bar" t-on-click.stop="">
+                        <!-- Location Filter -->
+                        <div class="ss-filter-group">
+                            <span class="ss-filter-label">Location</span>
+                            <div class="ss-dropdown">
+                                <button class="ss-btn ss-dropdown-btn btn-sm" t-on-click="() => this.toggleDropdown('location')">
+                                    <t t-esc="selectedLocationsLabel"/>
+                                    <i class="fa fa-caret-down ml-2"/>
+                                </button>
+                                <t t-if="state.dropdowns.location.isOpen">
+                                    <div class="ss-dropdown-menu">
+                                        <div class="ss-dropdown-search">
+                                            <input type="text" class="ss-dropdown-search-input" placeholder="Search location..." t-att-value="state.dropdowns.location.search" t-on-input="(ev) => this.onSearchInput('location', ev)"/>
+                                            <div class="ss-dropdown-actions">
+                                                <button class="ss-dropdown-action-btn select-btn" t-on-click="() => this.selectAll('location')">Select All</button>
+                                                <button class="ss-dropdown-action-btn unselect-btn" t-on-click="() => this.unselectAll('location')">Unselect All</button>
+                                            </div>
+                                        </div>
+                                        <div class="ss-dropdown-items-container">
+                                            <t t-foreach="filteredLocations" t-as="loc" t-key="loc.id">
+                                                <div class="ss-dropdown-item" t-on-click="() => this.toggleLocation(loc.id)">
+                                                    <input type="checkbox" t-att-checked="state.filters.location_ids.includes(loc.id)" style="pointer-events: none;"/>
+                                                    <span class="ml-2"><t t-esc="loc.complete_name || loc.name"/></span>
+                                                </div>
+                                            </t>
+                                        </div>
+                                    </div>
+                                </t>
+                            </div>
+                        </div>
+
+                        <!-- Category Filter -->
+                        <div class="ss-filter-group">
+                            <span class="ss-filter-label">Category</span>
+                            <div class="ss-dropdown">
+                                <button class="ss-btn ss-dropdown-btn btn-sm" t-on-click="() => this.toggleDropdown('category')">
+                                    <t t-esc="selectedCategoriesLabel"/>
+                                    <i class="fa fa-caret-down ml-2"/>
+                                </button>
+                                <t t-if="state.dropdowns.category.isOpen">
+                                    <div class="ss-dropdown-menu">
+                                        <div class="ss-dropdown-search">
+                                            <input type="text" class="ss-dropdown-search-input" placeholder="Search category..." t-att-value="state.dropdowns.category.search" t-on-input="(ev) => this.onSearchInput('category', ev)"/>
+                                            <div class="ss-dropdown-actions">
+                                                <button class="ss-dropdown-action-btn select-btn" t-on-click="() => this.selectAll('category')">Select All</button>
+                                                <button class="ss-dropdown-action-btn unselect-btn" t-on-click="() => this.unselectAll('category')">Unselect All</button>
+                                            </div>
+                                        </div>
+                                        <div class="ss-dropdown-items-container">
+                                            <t t-foreach="filteredCategories" t-as="cat" t-key="cat.id">
+                                                <div class="ss-dropdown-item" t-on-click="() => this.toggleCategory(cat.id)">
+                                                    <input type="checkbox" t-att-checked="state.filters.category_ids.includes(cat.id)" style="pointer-events: none;"/>
+                                                    <span class="ml-2"><t t-esc="cat.name"/></span>
+                                                </div>
+                                            </t>
+                                        </div>
+                                    </div>
+                                </t>
+                            </div>
+                        </div>
+
+                        <!-- Product Filter -->
+                        <div class="ss-filter-group">
+                            <span class="ss-filter-label">Product</span>
+                            <div class="ss-dropdown">
+                                <button class="ss-btn ss-dropdown-btn btn-sm" t-on-click="() => this.toggleDropdown('product')">
+                                    <t t-esc="selectedProductsLabel"/>
+                                    <i class="fa fa-caret-down ml-2"/>
+                                </button>
+                                <t t-if="state.dropdowns.product.isOpen">
+                                    <div class="ss-dropdown-menu">
+                                        <div class="ss-dropdown-search">
+                                            <input type="text" class="ss-dropdown-search-input" placeholder="Search product..." t-att-value="state.dropdowns.product.search" t-on-input="(ev) => this.onSearchInput('product', ev)"/>
+                                            <div class="ss-dropdown-actions">
+                                                <button class="ss-dropdown-action-btn select-btn" t-on-click="() => this.selectAll('product')">Select All</button>
+                                                <button class="ss-dropdown-action-btn unselect-btn" t-on-click="() => this.unselectAll('product')">Unselect All</button>
+                                            </div>
+                                        </div>
+                                        <div class="ss-dropdown-items-container">
+                                            <t t-foreach="filteredProducts" t-as="prod" t-key="prod.id">
+                                                <div class="ss-dropdown-item" t-on-click="() => this.toggleProduct(prod.id)">
+                                                    <input type="checkbox" t-att-checked="state.filters.product_ids.includes(prod.id)" style="pointer-events: none;"/>
+                                                    <span class="ml-2"><t t-esc="prod.name"/></span>
+                                                </div>
+                                            </t>
+                                        </div>
+                                    </div>
+                                </t>
+                            </div>
+                        </div>
+
+                        <!-- Date Filters -->
+                        <div class="ss-filter-group">
+                            <span class="ss-filter-label">Start Date</span>
+                            <input type="date" class="ss-input" t-att-value="state.filters.date_from" t-on-change="onDateFromChange"/>
+                        </div>
+
+                        <div class="ss-filter-group">
+                            <span class="ss-filter-label">End Date</span>
+                            <input type="date" class="ss-input" t-att-value="state.filters.date_to" t-on-change="onDateToChange"/>
+                        </div>
+
+                        <div class="ss-filter-actions">
+                            <button class="ss-btn ss-btn-primary" t-on-click="resetFilters">
+                                <i class="fa fa-times mr-2"/> Reset Filters
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Header Titles -->
+                    <div class="ss-dashboard-header">
+                        <div>
+                            <div class="d-flex align-items-center gap-2">
+                                <h1 class="m-0">Inventory Valuation &amp; Flow Metrics</h1>
+                                <t t-if="state.isRefreshing">
+                                    <span class="badge bg-primary text-white ms-2" style="font-size: 12px; font-weight: 600;">
+                                        <i class="fa fa-spinner fa-spin me-1"/> Updating...
+                                    </span>
+                                </t>
+                            </div>
+                            <p>Overview of stock flow, receipts, issues and aging buckets</p>
+                        </div>
+                    </div>
+
+                    <!-- Row 1: Core Flow KPI Tiles -->
+                    <div class="ss-kpi-grid mb-4">
+                        <!-- Opening Value -->
+                        <div class="ss-kpi-card kpi-opening-value cursor-pointer" t-on-click="openOpeningMoves">
+                            <span class="ss-kpi-title">Opening Value</span>
+                            <span class="ss-kpi-value">₹<t t-esc="formatVal(state.data.kpis.opening_value)"/></span>
+                            <span class="ss-kpi-sub">Total stock valuation before Start Date</span>
+                        </div>
+                        <!-- GRN Value -->
+                        <div class="ss-kpi-card kpi-grn-value cursor-pointer" t-on-click="openReceiptMoves">
+                            <span class="ss-kpi-title">GRN Value</span>
+                            <span class="ss-kpi-value text-success">₹<t t-esc="formatVal(state.data.kpis.grn_value)"/></span>
+                            <span class="ss-kpi-sub">Value of all inward receipts in period</span>
+                        </div>
+                        <!-- Stock Issue Value -->
+                        <div class="ss-kpi-card kpi-issue-value cursor-pointer" t-on-click="openIssueMoves">
+                            <span class="ss-kpi-title">Stock Issue Value</span>
+                            <span class="ss-kpi-value text-danger">₹<t t-esc="formatVal(state.data.kpis.issue_value)"/></span>
+                            <span class="ss-kpi-sub">Value of all outward issues in period</span>
+                        </div>
+                        <!-- Closing Value -->
+                        <div class="ss-kpi-card kpi-closing-value cursor-pointer" t-on-click="openClosingStock">
+                            <span class="ss-kpi-title">Closing Value</span>
+                            <span class="ss-kpi-value text-dark">₹<t t-esc="formatVal(state.data.kpis.closing_value)"/></span>
+                            <span class="ss-kpi-sub">Current total on-hand stock valuation</span>
+                        </div>
+                    </div>
+
+                    <!-- Header Titles for Aging -->
+                    <div class="ss-dashboard-header mt-5 mb-3">
+                        <div>
+                            <h1>Stock Aging Summary</h1>
+                            <p>Breakdown of current on-hand inventory valuation by age</p>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Stock Aging KPI Tiles -->
+                    <div class="ss-kpi-grid">
+                        <!-- Aged 0-30 Days -->
+                        <div class="ss-kpi-card kpi-ageing-30 cursor-pointer" t-on-click="() => this.openAgedStock(0, 30)" style="border-left: 4px solid #10b981;">
+                            <span class="ss-kpi-title">0 - 30 Days</span>
+                            <span class="ss-kpi-value" style="color: #10b981;">₹<t t-esc="formatValNoDecimal(state.data.kpis.ageing_30)"/></span>
+                            <span class="ss-kpi-sub">Stock aged 0 to 30 days</span>
+                        </div>
+                        <!-- Aged 31-60 Days -->
+                        <div class="ss-kpi-card kpi-ageing-60 cursor-pointer" t-on-click="() => this.openAgedStock(31, 60)" style="border-left: 4px solid #f59e0b;">
+                            <span class="ss-kpi-title">31 - 60 Days</span>
+                            <span class="ss-kpi-value" style="color: #f59e0b;">₹<t t-esc="formatValNoDecimal(state.data.kpis.ageing_60)"/></span>
+                            <span class="ss-kpi-sub">Stock aged 31 to 60 days</span>
+                        </div>
+                        <!-- Aged 61-90 Days -->
+                        <div class="ss-kpi-card kpi-ageing-90 cursor-pointer" t-on-click="() => this.openAgedStock(61, 90)" style="border-left: 4px solid #ea580c;">
+                            <span class="ss-kpi-title">61 - 90 Days</span>
+                            <span class="ss-kpi-value" style="color: #ea580c;">₹<t t-esc="formatValNoDecimal(state.data.kpis.ageing_90)"/></span>
+                            <span class="ss-kpi-sub">Stock aged 61 to 90 days</span>
+                        </div>
+                        <!-- Aged 91-120 Days -->
+                        <div class="ss-kpi-card kpi-ageing-120 cursor-pointer" t-on-click="() => this.openAgedStock(91, 120)" style="border-left: 4px solid #ef4444;">
+                            <span class="ss-kpi-title">91 - 120 Days</span>
+                            <span class="ss-kpi-value" style="color: #ef4444;">₹<t t-esc="formatValNoDecimal(state.data.kpis.ageing_120)"/></span>
+                            <span class="ss-kpi-sub">Stock aged 91 to 120 days</span>
+                        </div>
+                        <!-- Aged 121-150 Days -->
+                        <div class="ss-kpi-card kpi-ageing-150 cursor-pointer" t-on-click="() => this.openAgedStock(121, 150)" style="border-left: 4px solid #dc2626;">
+                            <span class="ss-kpi-title">121 - 150 Days</span>
+                            <span class="ss-kpi-value" style="color: #dc2626;">₹<t t-esc="formatValNoDecimal(state.data.kpis.ageing_150)"/></span>
+                            <span class="ss-kpi-sub">Stock aged 121 to 150 days</span>
+                        </div>
+                        <!-- Aged 151-180 Days -->
+                        <div class="ss-kpi-card kpi-ageing-180 cursor-pointer" t-on-click="() => this.openAgedStock(151, 180)" style="border-left: 4px solid #b91c1c;">
+                            <span class="ss-kpi-title">151 - 180 Days</span>
+                            <span class="ss-kpi-value" style="color: #b91c1c;">₹<t t-esc="formatValNoDecimal(state.data.kpis.ageing_180)"/></span>
+                            <span class="ss-kpi-sub">Stock aged 151 to 180 days</span>
+                        </div>
+                        <!-- Aged 181-360 Days -->
+                        <div class="ss-kpi-card kpi-ageing-360 cursor-pointer" t-on-click="() => this.openAgedStock(181, 360)" style="border-left: 4px solid #991b1b;">
+                            <span class="ss-kpi-title">181 - 360 Days</span>
+                            <span class="ss-kpi-value" style="color: #991b1b;">₹<t t-esc="formatValNoDecimal(state.data.kpis.ageing_360)"/></span>
+                            <span class="ss-kpi-sub">Stock aged 181 to 360 days</span>
+                        </div>
+                        <!-- Aged Above 360 Days -->
+                        <div class="ss-kpi-card kpi-ageing-above cursor-pointer" t-on-click="() => this.openAgedStock(361, 9999)" style="border-left: 4px solid #7f1d1d;">
+                            <span class="ss-kpi-title">Above 360 Days</span>
+                            <span class="ss-kpi-value" style="color: #7f1d1d;">₹<t t-esc="formatValNoDecimal(state.data.kpis.ageing_above)"/></span>
+                            <span class="ss-kpi-sub">Stock aged above 360 days</span>
+                        </div>
+                    </div>
+                </t>
+            </div>
+        </Layout>
+    </t>
+</templates>
