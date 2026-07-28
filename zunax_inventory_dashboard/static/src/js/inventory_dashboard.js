@@ -301,6 +301,26 @@ export class ZunaxInventoryDashboard extends Component {
         }
     }
 
+    async openGateEntryPendingPickings() {
+        const f = this.state.filters;
+        const action = await this.orm.call(
+            "zunax.inventory.dashboard",
+            "action_open_gate_entry_pending_pickings",
+            [],
+            {
+                company_ids: f.company_ids,
+                date_from: f.date_from,
+                date_to: f.date_to,
+                category_ids: f.category_ids,
+                product_ids: f.product_ids,
+                location_ids: f.location_ids,
+            }
+        );
+        if (action) {
+            await this.actionService.doAction(action);
+        }
+    }
+
     async openReceiptMoves() {
         const domain = [
             ['state', '=', 'done'],

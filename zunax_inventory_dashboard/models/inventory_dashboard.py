@@ -2,6 +2,7 @@
 import logging
 from odoo import models, api, fields
 from datetime import datetime, timedelta
+import pytz
 
 _logger = logging.getLogger(__name__)
 
@@ -22,6 +23,125 @@ class ZunaxInventoryDashboard(models.AbstractModel):
         else:
             domain.extend(['|', ('company_id', '=', False), ('company_id', 'in', self.env.companies.ids)])
         return self.env['stock.location'].search(domain).ids
+
+    def _get_reconstructed_stock_value(self, company_id, location_ids, target_date, category_ids=None, product_ids=None):
+        cr = self.env.cr
+        company_id_str = str(company_id)
+        
+        sq_pid_filter = "AND sq.product_id = ANY(%(product_ids)s)" if product_ids else ""
+        sq_cat_filter = "AND pt.categ_id = ANY(%(category_ids)s)" if category_ids else ""
+        sml_pid_filter = "AND sml.product_id = ANY(%(product_ids)s)" if product_ids else ""
+        sml_cat_filter = "AND pt.categ_id = ANY(%(category_ids)s)" if category_ids else ""
+        svl_pid_filter = "AND svl.product_id = ANY(%(product_ids)s)" if product_ids else ""
+        svl_cat_filter = "AND pt.categ_id = ANY(%(category_ids)s)" if category_ids else ""
+        
+        params = {
+            'selected_locations': location_ids or [0],
+            'company_id_str': company_id_str,
+            'company_id': company_id,
+            'product_ids': product_ids or [],
+            'category_ids': category_ids or [],
+            'target_date': target_date,
+        }
+        
+        query = f"""
+            WITH current_quants AS (
+                SELECT 
+                    sq.product_id,
+                    sq.lot_id,
+                    sq.location_id,
+                    SUM(sq.quantity) AS qty
+                FROM stock_quant sq
+                JOIN product_product pp ON sq.product_id = pp.id
+                JOIN product_template pt ON pp.product_tmpl_id = pt.id
+                WHERE sq.location_id = ANY(%(selected_locations)s)
+                  {sq_pid_filter}
+                  {sq_cat_filter}
+                GROUP BY sq.product_id, sq.lot_id, sq.location_id
+            ),
+            inflows AS (
+                SELECT 
+                    sml.product_id,
+                    sml.lot_id,
+                    sml.location_dest_id AS location_id,
+                    SUM(sml.quantity) AS qty
+                FROM stock_move_line sml
+                JOIN product_product pp ON sml.product_id = pp.id
+                JOIN product_template pt ON pp.product_tmpl_id = pt.id
+                WHERE sml.state = 'done'
+                  AND sml.date > %(target_date)s
+                  AND sml.location_dest_id = ANY(%(selected_locations)s)
+                  {sml_pid_filter}
+                  {sml_cat_filter}
+                GROUP BY sml.product_id, sml.lot_id, sml.location_dest_id
+            ),
+            outflows AS (
+                SELECT 
+                    sml.product_id,
+                    sml.lot_id,
+                    sml.location_id,
+                    SUM(sml.quantity) AS qty
+                FROM stock_move_line sml
+                JOIN product_product pp ON sml.product_id = pp.id
+                JOIN product_template pt ON pp.product_tmpl_id = pt.id
+                WHERE sml.state = 'done'
+                  AND sml.date > %(target_date)s
+                  AND sml.location_id = ANY(%(selected_locations)s)
+                  {sml_pid_filter}
+                  {sml_cat_filter}
+                GROUP BY sml.product_id, sml.lot_id, sml.location_id
+            ),
+            reconstructed AS (
+                SELECT 
+                    COALESCE(c.product_id, i.product_id, o.product_id) AS product_id,
+                    COALESCE(c.lot_id, i.lot_id, o.lot_id) AS lot_id,
+                    COALESCE(c.location_id, i.location_id, o.location_id) AS location_id,
+                    (COALESCE(c.qty, 0.0) - COALESCE(i.qty, 0.0) + COALESCE(o.qty, 0.0)) AS qty
+                FROM current_quants c
+                FULL OUTER JOIN inflows i 
+                    ON c.product_id = i.product_id 
+                    AND COALESCE(c.lot_id, 0) = COALESCE(i.lot_id, 0) 
+                    AND c.location_id = i.location_id
+                FULL OUTER JOIN outflows o 
+                    ON COALESCE(c.product_id, i.product_id) = o.product_id 
+                    AND COALESCE(COALESCE(c.lot_id, i.lot_id), 0) = COALESCE(o.lot_id, 0) 
+                    AND COALESCE(c.location_id, i.location_id) = o.location_id
+            ),
+            hist_costs AS (
+                SELECT 
+                    svl.product_id,
+                    CASE 
+                        WHEN SUM(svl.quantity) > 0 THEN SUM(svl.value) / SUM(svl.quantity)
+                        ELSE 0.0
+                    END AS cost
+                FROM stock_valuation_layer svl
+                JOIN product_product pp ON svl.product_id = pp.id
+                JOIN product_template pt ON pp.product_tmpl_id = pt.id
+                WHERE svl.create_date <= %(target_date)s
+                  AND svl.company_id = %(company_id)s
+                  {svl_pid_filter}
+                  {svl_cat_filter}
+                GROUP BY svl.product_id
+            )
+            SELECT COALESCE(SUM(r.qty * COALESCE(
+                hc.cost,
+                (pp.standard_price->>%(company_id_str)s)::numeric,
+                (pp.standard_price->>'1')::numeric,
+                (pp.standard_price->>'2')::numeric,
+                (pp.standard_price->>'3')::numeric,
+                (pp.standard_price->>'4')::numeric,
+                (pp.standard_price->>'5')::numeric,
+                (pp.standard_price->>'6')::numeric,
+                (pp.standard_price->>'7')::numeric,
+                (pp.standard_price->>'8')::numeric,
+                0.0
+            )), 0.0) AS total_val
+            FROM reconstructed r
+            JOIN product_product pp ON r.product_id = pp.id
+            LEFT JOIN hist_costs hc ON r.product_id = hc.product_id
+        """
+        cr.execute(query, params)
+        return float(cr.fetchone()[0] or 0.0)
 
     @api.model
     def get_dashboard_data(self, company_ids=None, warehouse_ids=None,
@@ -67,8 +187,14 @@ class ZunaxInventoryDashboard(models.AbstractModel):
         elif not date_to:
             date_to = datetime.now().strftime('%Y-%m-%d')
 
-        dt_from = f"{date_from} 00:00:00"
-        dt_to = f"{date_to} 23:59:59"
+        # Convert local timezone dates to UTC for database query alignment
+        user_tz = pytz.timezone(self.env.user.tz or self._context.get('tz') or 'UTC')
+        
+        local_from = datetime.strptime(f"{date_from} 00:00:00", "%Y-%m-%d %H:%M:%S")
+        local_to = datetime.strptime(f"{date_to} 23:59:59", "%Y-%m-%d %H:%M:%S")
+        
+        dt_from = user_tz.localize(local_from).astimezone(pytz.utc).strftime("%Y-%m-%d %H:%M:%S")
+        dt_to = user_tz.localize(local_to).astimezone(pytz.utc).strftime("%Y-%m-%d %H:%M:%S")
 
         # Resolve selected location IDs
         selected_location_ids = list(l_ids)
@@ -151,32 +277,17 @@ class ZunaxInventoryDashboard(models.AbstractModel):
             'company_id_str': company_id_str,
         }
 
-        # Closing Value: stock_quant.quantity × standard_price (JSONB in Odoo 18)
-        # Fast direct key COALESCE across permitted company IDs
-        cr.execute(f"""
-            SELECT COALESCE(SUM(
-                sq.quantity * COALESCE(
-                    (pp.standard_price->>%(company_id_str)s)::numeric,
-                    (pp.standard_price->>'1')::numeric,
-                    (pp.standard_price->>'2')::numeric,
-                    (pp.standard_price->>'3')::numeric,
-                    (pp.standard_price->>'4')::numeric,
-                    (pp.standard_price->>'5')::numeric,
-                    (pp.standard_price->>'6')::numeric,
-                    (pp.standard_price->>'7')::numeric,
-                    (pp.standard_price->>'8')::numeric,
-                    0.0
-                )
-            ), 0.0)
-            FROM stock_quant sq
-            JOIN product_product pp ON sq.product_id = pp.id
-            JOIN product_template pt ON pp.product_tmpl_id = pt.id
-            WHERE sq.location_id = ANY(%(selected_locations)s)
-              AND sq.quantity > 0
-              {sq_pid_filter}
-              {sq_cat_filter}
-        """, kpi_params)
-        closing_val = float(cr.fetchone()[0] or 0.0)
+        # Closing Value: reconstructed as of dt_to
+        closing_val = self._get_reconstructed_stock_value(
+            main_company_id, selected_location_ids, dt_to,
+            expanded_category_ids, p_ids
+        )
+
+        # Opening Value: reconstructed as of dt_from (ensures exact match with Opening list view)
+        opening_val = self._get_reconstructed_stock_value(
+            main_company_id, selected_location_ids, dt_from,
+            expanded_category_ids, p_ids
+        )
 
         # Period Receipts (GRN) — stock moves INTO selected locations from external source
         # Use SVL.value directly (always recorded for valued products)
@@ -189,30 +300,53 @@ class ZunaxInventoryDashboard(models.AbstractModel):
             WHERE sm.state = 'done'
               AND sm.date >= %(dt_from)s AND sm.date <= %(dt_to)s
               AND sm.location_dest_id = ANY(%(selected_locations)s)
-              AND sm.location_id NOT IN (SELECT id FROM stock_location WHERE usage = 'internal')
+              AND NOT (sm.location_id = ANY(%(selected_locations)s))
               {sm_pid_filter}
               {sm_cat_filter}
         """, kpi_params)
         receipt_val = float(cr.fetchone()[0] or 0.0)
 
-        # Period Issues — stock moves FROM selected locations to external destination
-        cr.execute(f"""
-            SELECT COALESCE(SUM(ABS(svl.value)), 0.0)
-            FROM stock_move sm
-            JOIN stock_valuation_layer svl ON svl.stock_move_id = sm.id
-            JOIN product_product pp ON sm.product_id = pp.id
-            JOIN product_template pt ON pp.product_tmpl_id = pt.id
-            WHERE sm.state = 'done'
-              AND sm.date >= %(dt_from)s AND sm.date <= %(dt_to)s
-              AND sm.location_id = ANY(%(selected_locations)s)
-              AND sm.location_dest_id NOT IN (SELECT id FROM stock_location WHERE usage = 'internal')
-              {sm_pid_filter}
-              {sm_cat_filter}
-        """, kpi_params)
-        issue_val = float(cr.fetchone()[0] or 0.0)
+        # Period Issues — stock moves FROM selected locations (derived via standard COGS equation to balance perfectly)
+        issue_val = max(0.0, opening_val + receipt_val - closing_val)
 
-        # Opening Value = Closing - Receipts + Issues (inventory balance equation)
-        opening_val = closing_val - receipt_val + issue_val
+        # Gate Entry Done, Receipt Pending (location filter excluded)
+        ge_pending_picking_ids = self._get_gate_entry_pending_picking_ids(
+            active_company_ids, dt_from, dt_to,
+            expanded_category_ids, p_ids
+        )
+        gate_entry_pending_count = len(ge_pending_picking_ids)
+        gate_entry_pending_val = 0.0
+
+        if ge_pending_picking_ids:
+            query_ge_val = f"""
+                SELECT COALESCE(SUM(
+                    COALESCE(NULLIF(sm.quantity, 0), sm.product_uom_qty) * COALESCE(
+                        pol.price_unit,
+                        (pprod.standard_price->>%(company_id_str)s)::numeric,
+                        (pprod.standard_price->>'1')::numeric,
+                        (pprod.standard_price->>'2')::numeric,
+                        (pprod.standard_price->>'3')::numeric,
+                        (pprod.standard_price->>'4')::numeric,
+                        (pprod.standard_price->>'5')::numeric,
+                        (pprod.standard_price->>'6')::numeric,
+                        (pprod.standard_price->>'7')::numeric,
+                        (pprod.standard_price->>'8')::numeric,
+                        0.0
+                    )
+                ), 0.0)
+                FROM stock_move sm
+                JOIN product_product pprod ON sm.product_id = pprod.id
+                JOIN product_template pt ON pprod.product_tmpl_id = pt.id
+                LEFT JOIN purchase_order_line pol ON pol.id = sm.purchase_line_id
+                WHERE sm.picking_id = ANY(%(picking_ids)s)
+                  AND sm.state NOT IN ('done', 'cancel')
+                  {sm_pid_filter}
+                  {sm_cat_filter}
+            """
+            ge_val_params = dict(kpi_params)
+            ge_val_params['picking_ids'] = ge_pending_picking_ids
+            cr.execute(query_ge_val, ge_val_params)
+            gate_entry_pending_val = float(cr.fetchone()[0] or 0.0)
 
         # ── AGING ────────────────────────────────────────────────────────────
         ageing_data = self._get_ageing_analysis(
@@ -250,6 +384,8 @@ class ZunaxInventoryDashboard(models.AbstractModel):
             'kpis': {
                 'opening_value': round(opening_val, 2),
                 'grn_value': round(receipt_val, 2),
+                'gate_entry_pending_value': round(gate_entry_pending_val, 2),
+                'gate_entry_pending_count': gate_entry_pending_count,
                 'issue_value': round(issue_val, 2),
                 'closing_value': round(closing_val, 2),
                 'ageing_30': round(age_30, 2),
@@ -341,13 +477,26 @@ class ZunaxInventoryDashboard(models.AbstractModel):
                           AND NOT (sm.location_dest_id = ANY(%(location_ids)s))
                      THEN ABS(COALESCE(svl.value, sm.quantity * COALESCE((pp.standard_price->>%(company_id_str)s)::numeric, 0.0)))
                      ELSE 0.0 END)                                           AS issue_val,
-                -- All receipts since dt_from (for opening balance computation)
-                SUM(CASE WHEN sm.location_dest_id = ANY(%(location_ids)s)
+                -- Post-period receipts (after dt_to)
+                SUM(CASE WHEN sm.date > %(dt_to)s
+                          AND sm.location_dest_id = ANY(%(location_ids)s)
                           AND NOT (sm.location_id = ANY(%(location_ids)s))
-                     THEN sm.quantity ELSE 0.0 END)                          AS all_receipts_since,
-                SUM(CASE WHEN sm.location_id = ANY(%(location_ids)s)
+                     THEN sm.quantity ELSE 0.0 END)                          AS post_receipt_qty,
+                SUM(CASE WHEN sm.date > %(dt_to)s
+                          AND sm.location_dest_id = ANY(%(location_ids)s)
+                          AND NOT (sm.location_id = ANY(%(location_ids)s))
+                     THEN COALESCE(svl.value, sm.quantity * COALESCE((pp.standard_price->>%(company_id_str)s)::numeric, 0.0))
+                     ELSE 0.0 END)                                           AS post_receipt_val,
+                -- Post-period issues (after dt_to)
+                SUM(CASE WHEN sm.date > %(dt_to)s
+                          AND sm.location_id = ANY(%(location_ids)s)
                           AND NOT (sm.location_dest_id = ANY(%(location_ids)s))
-                     THEN sm.quantity ELSE 0.0 END)                          AS all_issues_since
+                     THEN sm.quantity ELSE 0.0 END)                          AS post_issue_qty,
+                SUM(CASE WHEN sm.date > %(dt_to)s
+                          AND sm.location_id = ANY(%(location_ids)s)
+                          AND NOT (sm.location_dest_id = ANY(%(location_ids)s))
+                     THEN ABS(COALESCE(svl.value, sm.quantity * COALESCE((pp.standard_price->>%(company_id_str)s)::numeric, 0.0)))
+                     ELSE 0.0 END)                                           AS post_issue_val
             FROM stock_move sm
             JOIN product_product pp ON sm.product_id = pp.id
             LEFT JOIN stock_valuation_layer svl ON svl.stock_move_id = sm.id
@@ -370,11 +519,21 @@ class ZunaxInventoryDashboard(models.AbstractModel):
             receipt_val = float(m.get('receipt_val') or 0)
             issue_qty   = float(m.get('issue_qty') or 0)
             issue_val   = float(m.get('issue_val') or 0)
-            closing_qty = float(row.get('closing_qty') or 0)
-            closing_val = float(row.get('closing_val') or 0)
-            all_recv  = float(m.get('all_receipts_since') or 0)
-            all_issue = float(m.get('all_issues_since') or 0)
-            opening_qty = closing_qty - all_recv + all_issue
+            
+            post_receipt_qty = float(m.get('post_receipt_qty') or 0)
+            post_receipt_val = float(m.get('post_receipt_val') or 0)
+            post_issue_qty   = float(m.get('post_issue_qty') or 0)
+            post_issue_val   = float(m.get('post_issue_val') or 0)
+            
+            closing_qty_current = float(row.get('closing_qty') or 0)
+            closing_val_current = float(row.get('closing_val') or 0)
+            
+            # Reconstruct historical closing stock level as of dt_to
+            closing_qty = closing_qty_current - post_receipt_qty + post_issue_qty
+            closing_val = closing_val_current - post_receipt_val + post_issue_val
+            
+            # Calculate historical opening stock level as of dt_from
+            opening_qty = closing_qty - receipt_qty + issue_qty
             opening_val = closing_val - receipt_val + issue_val
 
             if not any([opening_qty, receipt_qty, issue_qty, closing_qty]):
@@ -397,27 +556,28 @@ class ZunaxInventoryDashboard(models.AbstractModel):
 
     def _get_ageing_analysis(self, company_id, location_ids, dt_to,
                              category_ids, product_ids):
-        """Compute stock aging buckets using standard_price (JSONB in Odoo 18) for unit cost."""
+        """Compute stock aging buckets using FIFO receipt matching and standard_price (JSONB in Odoo 18)."""
         cr = self.env.cr
         company_id_str = str(company_id)
-
-        pid_filter = "AND sq.product_id = ANY(%(product_ids)s)" if product_ids else ""
-        cat_filter = "AND pt.categ_id = ANY(%(category_ids)s)" if category_ids else ""
 
         params = {
             'location_ids': location_ids,
             'product_ids': product_ids or [],
+            'product_ids_empty': not bool(product_ids),
             'category_ids': category_ids or [],
-            'dt_to': dt_to,
+            'category_ids_empty': not bool(category_ids),
             'company_id_str': company_id_str,
         }
 
-        # standard_price is JSONB in Odoo 18 with company_id as key
-        query = f"""
+        # Step 1: Get current on-hand stock per product from stock_quant
+        qty_q = """
             SELECT
                 sq.product_id,
-                pp.default_code AS item_code,
-                COALESCE(pt.name->>'en_US', pt.name::text) AS item_name,
+                sq.lot_id,
+                sq.location_id,
+                MAX(sq.in_date)                                              AS last_moved_date,
+                pp.default_code                                              AS item_code,
+                COALESCE(pt.name->>'en_US', pt.name::text)                   AS item_name,
                 COALESCE(
                     (pp.standard_price->>%(company_id_str)s)::numeric,
                     (pp.standard_price->>'1')::numeric,
@@ -429,70 +589,136 @@ class ZunaxInventoryDashboard(models.AbstractModel):
                     (pp.standard_price->>'7')::numeric,
                     (pp.standard_price->>'8')::numeric,
                     0.0
-                ) AS unit_cost,
-                SUM(CASE WHEN sq.in_date >= %(dt_to)s::timestamp - INTERVAL '30 days'
-                              AND sq.in_date <= %(dt_to)s::timestamp
-                         THEN sq.quantity ELSE 0 END) AS qty_30,
-                SUM(CASE WHEN sq.in_date >= %(dt_to)s::timestamp - INTERVAL '60 days'
-                              AND sq.in_date <  %(dt_to)s::timestamp - INTERVAL '30 days'
-                         THEN sq.quantity ELSE 0 END) AS qty_60,
-                SUM(CASE WHEN sq.in_date >= %(dt_to)s::timestamp - INTERVAL '90 days'
-                              AND sq.in_date <  %(dt_to)s::timestamp - INTERVAL '60 days'
-                         THEN sq.quantity ELSE 0 END) AS qty_90,
-                SUM(CASE WHEN sq.in_date >= %(dt_to)s::timestamp - INTERVAL '120 days'
-                              AND sq.in_date <  %(dt_to)s::timestamp - INTERVAL '90 days'
-                         THEN sq.quantity ELSE 0 END) AS qty_120,
-                SUM(CASE WHEN sq.in_date >= %(dt_to)s::timestamp - INTERVAL '150 days'
-                              AND sq.in_date <  %(dt_to)s::timestamp - INTERVAL '120 days'
-                         THEN sq.quantity ELSE 0 END) AS qty_150,
-                SUM(CASE WHEN sq.in_date >= %(dt_to)s::timestamp - INTERVAL '180 days'
-                              AND sq.in_date <  %(dt_to)s::timestamp - INTERVAL '150 days'
-                         THEN sq.quantity ELSE 0 END) AS qty_180,
-                SUM(CASE WHEN sq.in_date >= %(dt_to)s::timestamp - INTERVAL '360 days'
-                              AND sq.in_date <  %(dt_to)s::timestamp - INTERVAL '180 days'
-                         THEN sq.quantity ELSE 0 END) AS qty_360,
-                SUM(CASE WHEN sq.in_date IS NULL
-                              OR sq.in_date < %(dt_to)s::timestamp - INTERVAL '360 days'
-                         THEN sq.quantity ELSE 0 END) AS qty_above,
-                SUM(sq.quantity) AS total_qty
+                )                                                            AS unit_cost,
+                SUM(sq.quantity)                                             AS total_qty
             FROM stock_quant sq
             JOIN product_product pp ON sq.product_id = pp.id
             JOIN product_template pt ON pp.product_tmpl_id = pt.id
             WHERE sq.location_id = ANY(%(location_ids)s)
-              AND sq.quantity > 0
-              {pid_filter}
-              {cat_filter}
-            GROUP BY sq.product_id, pp.default_code, pt.name, pp.standard_price
+              AND (%(product_ids_empty)s OR sq.product_id = ANY(%(product_ids)s))
+              AND (%(category_ids_empty)s OR pt.categ_id = ANY(%(category_ids)s))
+            GROUP BY sq.product_id, sq.lot_id, sq.location_id, pp.default_code, pt.name, pp.standard_price
+            HAVING SUM(sq.quantity) > 0
+            ORDER BY COALESCE(pt.name->>'en_US', pt.name::text) ASC
+            LIMIT 5000
         """
-        cr.execute(query, params)
-        rows = cr.dictfetchall()
+        cr.execute(qty_q, params)
+        products = cr.dictfetchall()
+        if not products:
+            return []
+
+        product_qty_map = {}
+        for r in products:
+            pid = r['product_id']
+            qty = float(r['total_qty'] or 0)
+            product_qty_map[pid] = product_qty_map.get(pid, 0.0) + qty
+
+        # Get database start date (earliest done move date)
+        cr.execute("SELECT MIN(date) FROM stock_move WHERE state = 'done'")
+        min_date_row = cr.fetchone()
+        db_start_date = min_date_row[0] if min_date_row and min_date_row[0] else None
+
+        # Step 2: Fetch receipts from the last 365 days for FIFO ageing
+        dt_to_parsed = datetime.strptime(dt_to[:10], '%Y-%m-%d')
+        dt_limit = (dt_to_parsed - timedelta(days=365)).strftime('%Y-%m-%d 00:00:00')
+
+        params['active_pids'] = list(product_qty_map.keys())
+        params['dt_to'] = dt_to
+        params['dt_limit'] = dt_limit
+
+        receipt_q = """
+            SELECT
+                sm.product_id,
+                sm.date,
+                sm.quantity,
+                COALESCE(svl.unit_cost,
+                    COALESCE((pp.standard_price->>%(company_id_str)s)::numeric,
+                             (pp.standard_price->>'1')::numeric, 0.0))       AS unit_cost
+            FROM stock_move sm
+            JOIN product_product pp ON sm.product_id = pp.id
+            JOIN stock_location dest ON dest.id = sm.location_dest_id
+            JOIN stock_location src ON src.id = sm.location_id
+            LEFT JOIN stock_valuation_layer svl ON svl.stock_move_id = sm.id
+            WHERE sm.state = 'done'
+              AND dest.usage = 'internal'
+              AND src.usage != 'internal'
+              AND sm.date <= %(dt_to)s
+              AND sm.date >= %(dt_limit)s
+              AND sm.product_id = ANY(%(active_pids)s)
+            ORDER BY sm.product_id, sm.date DESC
+        """
+        cr.execute(receipt_q, params)
+        receipts = cr.dictfetchall()
+
+        receipt_by_product = {}
+        for r in receipts:
+            r_copy = dict(r)
+            r_copy['qty_left'] = float(r['quantity'] or 0.0)
+            receipt_by_product.setdefault(r['product_id'], []).append(r_copy)
 
         result = []
-        for r in rows:
-            unit_cost = float(r['unit_cost'] or 0.0)
-            qty_30    = float(r['qty_30'] or 0.0)
-            qty_60    = float(r['qty_60'] or 0.0)
-            qty_90    = float(r['qty_90'] or 0.0)
-            qty_120   = float(r['qty_120'] or 0.0)
-            qty_150   = float(r['qty_150'] or 0.0)
-            qty_180   = float(r['qty_180'] or 0.0)
-            qty_360   = float(r['qty_360'] or 0.0)
-            qty_above = float(r['qty_above'] or 0.0)
-            total_qty = float(r['total_qty'] or 0.0)
+        for p in products:
+            prod_id   = p['product_id']
+            qty_rem   = float(p['total_qty'] or 0)
+            unit_cost = float(p['unit_cost'] or 0)
+
+            aged = {k: {'qty': 0.0, 'val': 0.0}
+                    for k in ('30', '60', '90', '120', '150', '180', '365', 'above')}
+
+            for r in receipt_by_product.get(prod_id, []):
+                if qty_rem <= 0:
+                    break
+                if r['qty_left'] <= 0:
+                    continue
+                matched  = min(qty_rem, r['qty_left'])
+                r_cost   = float(r['unit_cost'] or 0) or unit_cost
+                r_val    = matched * r_cost
+                move_date = r['date']
+                if isinstance(move_date, str):
+                    move_date = datetime.strptime(move_date[:19], '%Y-%m-%d %H:%M:%S')
+                age = (dt_to_parsed - move_date.replace(tzinfo=None)).days
+
+                bucket = ('30' if age <= 30 else '60' if age <= 60 else '90' if age <= 90
+                          else '120' if age <= 120 else '150' if age <= 150
+                          else '180' if age <= 180 else '365' if age <= 365 else 'above')
+                aged[bucket]['qty'] += matched
+                aged[bucket]['val'] += r_val
+                r['qty_left'] -= matched
+                qty_rem -= matched
+
+            if qty_rem > 0:
+                if db_start_date:
+                    db_start_dt = db_start_date.replace(tzinfo=None) if hasattr(db_start_date, 'replace') else db_start_date
+                    max_possible_age = (dt_to_parsed - db_start_dt).days
+                else:
+                    max_possible_age = 9999
+                
+                bucket = ('30' if max_possible_age <= 30 else '60' if max_possible_age <= 60
+                          else '90' if max_possible_age <= 90 else '120' if max_possible_age <= 120
+                          else '150' if max_possible_age <= 150 else '180' if max_possible_age <= 180
+                          else '365' if max_possible_age <= 365 else 'above')
+                
+                aged[bucket]['qty'] += qty_rem
+                aged[bucket]['val'] += qty_rem * unit_cost
+
+            total_qty = float(p['total_qty'] or 0)
             result.append({
-                'product_id': r['product_id'],
-                'item_code':  r['item_code'] or 'N/A',
-                'item_name':  r['item_name'],
+                'product_id': prod_id,
+                'lot_id':     p['lot_id'],
+                'location_id': p['location_id'],
+                'last_moved_date': p['last_moved_date'],
+                'item_code':  p['item_code'] or 'N/A',
+                'item_name':  p['item_name'],
                 'total_qty':  round(total_qty, 4),
                 'total_val':  round(total_qty * unit_cost, 2),
-                'qty_30': round(qty_30, 4),   'val_30':  round(qty_30 * unit_cost, 2),
-                'qty_60': round(qty_60, 4),   'val_60':  round(qty_60 * unit_cost, 2),
-                'qty_90': round(qty_90, 4),   'val_90':  round(qty_90 * unit_cost, 2),
-                'qty_120': round(qty_120, 4), 'val_120': round(qty_120 * unit_cost, 2),
-                'qty_150': round(qty_150, 4), 'val_150': round(qty_150 * unit_cost, 2),
-                'qty_180': round(qty_180, 4), 'val_180': round(qty_180 * unit_cost, 2),
-                'qty_360': round(qty_360, 4), 'val_360': round(qty_360 * unit_cost, 2),
-                'qty_above': round(qty_above, 4), 'val_above': round(qty_above * unit_cost, 2),
+                'qty_30': round(aged['30']['qty'], 4),     'val_30': round(aged['30']['val'], 2),
+                'qty_60': round(aged['60']['qty'], 4),     'val_60': round(aged['60']['val'], 2),
+                'qty_90': round(aged['90']['qty'], 4),     'val_90': round(aged['90']['val'], 2),
+                'qty_120': round(aged['120']['qty'], 4),   'val_120': round(aged['120']['val'], 2),
+                'qty_150': round(aged['150']['qty'], 4),   'val_150': round(aged['150']['val'], 2),
+                'qty_180': round(aged['180']['qty'], 4),   'val_180': round(aged['180']['val'], 2),
+                'qty_360': round(aged['365']['qty'], 4),   'val_360': round(aged['365']['val'], 2),
+                'qty_above': round(aged['above']['qty'], 4), 'val_above': round(aged['above']['val'], 2),
             })
         return result
 
@@ -508,7 +734,7 @@ class ZunaxInventoryDashboard(models.AbstractModel):
         if company_ids:
             active_company_ids = [int(c) for c in company_ids if int(c) in allowed_companies]
         else:
-            active_company_ids = [self.env.company.id]
+            active_company_ids = list(allowed_companies)
         if not active_company_ids:
             active_company_ids = [self.env.company.id]
 
@@ -520,8 +746,10 @@ class ZunaxInventoryDashboard(models.AbstractModel):
         if c_ids:
             expanded_category_ids = self.env['product.category'].search([('id', 'child_of', c_ids)]).ids
 
-        if not date_from:
-            date_from = f"{datetime.now().year}-01-01"
+        # Convert local timezone date to UTC for database query alignment
+        user_tz = pytz.timezone(self.env.user.tz or self._context.get('tz') or 'UTC')
+        local_from = datetime.strptime(f"{date_from} 00:00:00", "%Y-%m-%d %H:%M:%S")
+        target_date_utc = user_tz.localize(local_from).astimezone(pytz.utc).strftime("%Y-%m-%d %H:%M:%S")
 
         selected_location_ids = l_ids or self._get_location_ids(active_company_ids)
         if not selected_location_ids:
@@ -529,41 +757,126 @@ class ZunaxInventoryDashboard(models.AbstractModel):
 
         cr = self.env.cr
         company_id_str = str(active_company_ids[0])
+        company_id = active_company_ids[0]
+        
+        sq_pid_filter = "AND sq.product_id = ANY(%(product_ids)s)" if p_ids else ""
+        sq_cat_filter = "AND pt.categ_id = ANY(%(category_ids)s)" if expanded_category_ids else ""
+        sml_pid_filter = "AND sml.product_id = ANY(%(product_ids)s)" if p_ids else ""
+        sml_cat_filter = "AND pt.categ_id = ANY(%(category_ids)s)" if expanded_category_ids else ""
+        svl_pid_filter = "AND svl.product_id = ANY(%(product_ids)s)" if p_ids else ""
+        svl_cat_filter = "AND pt.categ_id = ANY(%(category_ids)s)" if expanded_category_ids else ""
+
         params = {
             'selected_locations': selected_location_ids,
             'company_id_str': company_id_str,
+            'company_id': company_id,
+            'product_ids': p_ids,
+            'category_ids': expanded_category_ids,
+            'target_date': target_date_utc,
         }
-        val_filter_conds = []
-        if p_ids:
-            val_filter_conds.append("sq.product_id = ANY(%(product_ids)s)")
-            params['product_ids'] = p_ids
-        if expanded_category_ids:
-            val_filter_conds.append("pt.categ_id = ANY(%(category_ids)s)")
-            params['category_ids'] = expanded_category_ids
 
-        val_filter_sql = ("AND " + " AND ".join(val_filter_conds)) if val_filter_conds else ""
-
-        # Instant query starting from stock_quant
+        # CTE query starting from stock_quant reconstructed with done moves and historical costs
         query = f"""
+            WITH current_quants AS (
+                SELECT 
+                    sq.product_id,
+                    sq.lot_id,
+                    sq.location_id,
+                    SUM(sq.quantity) AS qty
+                FROM stock_quant sq
+                JOIN product_product pp ON sq.product_id = pp.id
+                JOIN product_template pt ON pp.product_tmpl_id = pt.id
+                WHERE sq.location_id = ANY(%(selected_locations)s)
+                  {sq_pid_filter}
+                  {sq_cat_filter}
+                GROUP BY sq.product_id, sq.lot_id, sq.location_id
+            ),
+            inflows AS (
+                SELECT 
+                    sml.product_id,
+                    sml.lot_id,
+                    sml.location_dest_id AS location_id,
+                    SUM(sml.quantity) AS qty
+                FROM stock_move_line sml
+                JOIN product_product pp ON sml.product_id = pp.id
+                JOIN product_template pt ON pp.product_tmpl_id = pt.id
+                WHERE sml.state = 'done'
+                  AND sml.date > %(target_date)s
+                  AND sml.location_dest_id = ANY(%(selected_locations)s)
+                  {sml_pid_filter}
+                  {sml_cat_filter}
+                GROUP BY sml.product_id, sml.lot_id, sml.location_dest_id
+            ),
+            outflows AS (
+                SELECT 
+                    sml.product_id,
+                    sml.lot_id,
+                    sml.location_id,
+                    SUM(sml.quantity) AS qty
+                FROM stock_move_line sml
+                JOIN product_product pp ON sml.product_id = pp.id
+                JOIN product_template pt ON pp.product_tmpl_id = pt.id
+                WHERE sml.state = 'done'
+                  AND sml.date > %(target_date)s
+                  AND sml.location_id = ANY(%(selected_locations)s)
+                  {sml_pid_filter}
+                  {sml_cat_filter}
+                GROUP BY sml.product_id, sml.lot_id, sml.location_id
+            ),
+            reconstructed AS (
+                SELECT 
+                    COALESCE(c.product_id, i.product_id, o.product_id) AS product_id,
+                    COALESCE(c.lot_id, i.lot_id, o.lot_id) AS lot_id,
+                    COALESCE(c.location_id, i.location_id, o.location_id) AS location_id,
+                    (COALESCE(c.qty, 0.0) - COALESCE(i.qty, 0.0) + COALESCE(o.qty, 0.0)) AS qty
+                FROM current_quants c
+                FULL OUTER JOIN inflows i 
+                    ON c.product_id = i.product_id 
+                    AND COALESCE(c.lot_id, 0) = COALESCE(i.lot_id, 0) 
+                    AND c.location_id = i.location_id
+                FULL OUTER JOIN outflows o 
+                    ON COALESCE(c.product_id, i.product_id) = o.product_id 
+                    AND COALESCE(COALESCE(c.lot_id, i.lot_id), 0) = COALESCE(o.lot_id, 0) 
+                    AND COALESCE(c.location_id, i.location_id) = o.location_id
+            ),
+            hist_costs AS (
+                SELECT 
+                    svl.product_id,
+                    CASE 
+                        WHEN SUM(svl.quantity) > 0 THEN SUM(svl.value) / SUM(svl.quantity)
+                        ELSE 0.0
+                    END AS cost
+                FROM stock_valuation_layer svl
+                JOIN product_product pp ON svl.product_id = pp.id
+                JOIN product_template pt ON pp.product_tmpl_id = pt.id
+                WHERE svl.create_date <= %(target_date)s
+                  AND svl.company_id = %(company_id)s
+                  {svl_pid_filter}
+                  {svl_cat_filter}
+                GROUP BY svl.product_id
+            )
             SELECT 
-                sq.product_id,
-                sq.lot_id,
-                sq.location_id,
-                SUM(sq.quantity) AS qty,
-                SUM(sq.quantity * COALESCE(
+                r.product_id,
+                r.lot_id,
+                r.location_id,
+                r.qty,
+                (r.qty * COALESCE(
+                    hc.cost,
                     (pp.standard_price->>%(company_id_str)s)::numeric,
                     (pp.standard_price->>'1')::numeric,
                     (pp.standard_price->>'2')::numeric,
+                    (pp.standard_price->>'3')::numeric,
+                    (pp.standard_price->>'4')::numeric,
+                    (pp.standard_price->>'5')::numeric,
+                    (pp.standard_price->>'6')::numeric,
+                    (pp.standard_price->>'7')::numeric,
+                    (pp.standard_price->>'8')::numeric,
                     0.0
                 )) AS val
-            FROM stock_quant sq
-            JOIN product_product pp ON sq.product_id = pp.id
-            JOIN product_template pt ON pp.product_tmpl_id = pt.id
-            WHERE sq.location_id = ANY(%(selected_locations)s)
-              AND sq.quantity > 0
-              {val_filter_sql}
-            GROUP BY sq.product_id, sq.lot_id, sq.location_id, pp.standard_price
-            HAVING SUM(sq.quantity) != 0
+            FROM reconstructed r
+            JOIN product_product pp ON r.product_id = pp.id
+            LEFT JOIN hist_costs hc ON r.product_id = hc.product_id
+            WHERE r.qty != 0
             LIMIT 5000
         """
         cr.execute(query, params)
@@ -586,6 +899,7 @@ class ZunaxInventoryDashboard(models.AbstractModel):
         lines = self.env['zunax.opening.valuation.line'].create(vals_list)
 
         action = self.env["ir.actions.actions"]._for_xml_id("zunax_inventory_dashboard.action_zunax_opening_valuation_lines")
+        action['name'] = f"Opening Stock Valuation (as of {date_from})"
         action['domain'] = [('id', 'in', lines.ids)]
         return action
 
@@ -593,10 +907,10 @@ class ZunaxInventoryDashboard(models.AbstractModel):
     def action_open_closing_valuation(self, company_ids=None, date_to=None, category_ids=None, product_ids=None, location_ids=None):
         self = self.sudo()
         allowed_companies = self.env.companies.ids
-        
-        active_company_ids = []
         if company_ids:
             active_company_ids = [int(c) for c in company_ids if int(c) in allowed_companies]
+        else:
+            active_company_ids = list(allowed_companies)
         if not active_company_ids:
             active_company_ids = [self.env.company.id]
 
@@ -615,52 +929,146 @@ class ZunaxInventoryDashboard(models.AbstractModel):
         if not selected_location_ids:
             selected_location_ids = [0]
 
+        # Convert local timezone date to UTC for database query alignment
+        user_tz = pytz.timezone(self.env.user.tz or self._context.get('tz') or 'UTC')
+        local_to = datetime.strptime(f"{date_to} 23:59:59", "%Y-%m-%d %H:%M:%S")
+        target_date_utc = user_tz.localize(local_to).astimezone(pytz.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+        selected_location_ids = l_ids or self._get_location_ids(active_company_ids)
+        if not selected_location_ids:
+            selected_location_ids = [0]
+
         # 1. Clear old records created by current user
         self.env['zunax.opening.valuation.line'].search([('create_uid', '=', self.env.user.id)]).unlink()
 
         # 2. Fast query directly from stock_quant
         cr = self.env.cr
         company_id_str = str(active_company_ids[0])
+        company_id = active_company_ids[0]
+        
+        sq_pid_filter = "AND sq.product_id = ANY(%(product_ids)s)" if p_ids else ""
+        sq_cat_filter = "AND pt.categ_id = ANY(%(category_ids)s)" if expanded_category_ids else ""
+        sml_pid_filter = "AND sml.product_id = ANY(%(product_ids)s)" if p_ids else ""
+        sml_cat_filter = "AND pt.categ_id = ANY(%(category_ids)s)" if expanded_category_ids else ""
+        svl_pid_filter = "AND svl.product_id = ANY(%(product_ids)s)" if p_ids else ""
+        svl_cat_filter = "AND pt.categ_id = ANY(%(category_ids)s)" if expanded_category_ids else ""
+
         params = {
             'selected_locations': selected_location_ids,
             'company_id_str': company_id_str,
+            'company_id': company_id,
+            'product_ids': p_ids,
+            'category_ids': expanded_category_ids,
+            'target_date': target_date_utc,
         }
-        val_filter_conds = []
-        if p_ids:
-            val_filter_conds.append("sq.product_id = ANY(%(product_ids)s)")
-            params['product_ids'] = p_ids
-        if expanded_category_ids:
-            val_filter_conds.append("pt.categ_id = ANY(%(category_ids)s)")
-            params['category_ids'] = expanded_category_ids
 
-        val_filter_sql = ("AND " + " AND ".join(val_filter_conds)) if val_filter_conds else ""
-
+        # CTE query starting from stock_quant reconstructed with done moves after date_to and historical costs
         query = f"""
+            WITH current_quants AS (
+                SELECT 
+                    sq.product_id,
+                    sq.lot_id,
+                    sq.location_id,
+                    SUM(sq.quantity) AS qty
+                FROM stock_quant sq
+                JOIN product_product pp ON sq.product_id = pp.id
+                JOIN product_template pt ON pp.product_tmpl_id = pt.id
+                WHERE sq.location_id = ANY(%(selected_locations)s)
+                  {sq_pid_filter}
+                  {sq_cat_filter}
+                GROUP BY sq.product_id, sq.lot_id, sq.location_id
+            ),
+            inflows AS (
+                SELECT 
+                    sml.product_id,
+                    sml.lot_id,
+                    sml.location_dest_id AS location_id,
+                    SUM(sml.quantity) AS qty
+                FROM stock_move_line sml
+                JOIN product_product pp ON sml.product_id = pp.id
+                JOIN product_template pt ON pp.product_tmpl_id = pt.id
+                WHERE sml.state = 'done'
+                  AND sml.date > %(target_date)s
+                  AND sml.location_dest_id = ANY(%(selected_locations)s)
+                  {sml_pid_filter}
+                  {sml_cat_filter}
+                GROUP BY sml.product_id, sml.lot_id, sml.location_dest_id
+            ),
+            outflows AS (
+                SELECT 
+                    sml.product_id,
+                    sml.lot_id,
+                    sml.location_id,
+                    SUM(sml.quantity) AS qty
+                FROM stock_move_line sml
+                JOIN product_product pp ON sml.product_id = pp.id
+                JOIN product_template pt ON pp.product_tmpl_id = pt.id
+                WHERE sml.state = 'done'
+                  AND sml.date > %(target_date)s
+                  AND sml.location_id = ANY(%(selected_locations)s)
+                  {sml_pid_filter}
+                  {sml_cat_filter}
+                GROUP BY sml.product_id, sml.lot_id, sml.location_id
+            ),
+            reconstructed AS (
+                SELECT 
+                    COALESCE(c.product_id, i.product_id, o.product_id) AS product_id,
+                    COALESCE(c.lot_id, i.lot_id, o.lot_id) AS lot_id,
+                    COALESCE(c.location_id, i.location_id, o.location_id) AS location_id,
+                    (COALESCE(c.qty, 0.0) - COALESCE(i.qty, 0.0) + COALESCE(o.qty, 0.0)) AS qty
+                FROM current_quants c
+                FULL OUTER JOIN inflows i 
+                    ON c.product_id = i.product_id 
+                    AND COALESCE(c.lot_id, 0) = COALESCE(i.lot_id, 0) 
+                    AND c.location_id = i.location_id
+                FULL OUTER JOIN outflows o 
+                    ON COALESCE(c.product_id, i.product_id) = o.product_id 
+                    AND COALESCE(COALESCE(c.lot_id, i.lot_id), 0) = COALESCE(o.lot_id, 0) 
+                    AND COALESCE(c.location_id, i.location_id) = o.location_id
+            ),
+            hist_costs AS (
+                SELECT 
+                    svl.product_id,
+                    CASE 
+                        WHEN SUM(svl.quantity) > 0 THEN SUM(svl.value) / SUM(svl.quantity)
+                        ELSE 0.0
+                    END AS cost
+                FROM stock_valuation_layer svl
+                JOIN product_product pp ON svl.product_id = pp.id
+                JOIN product_template pt ON pp.product_tmpl_id = pt.id
+                WHERE svl.create_date <= %(target_date)s
+                  AND svl.company_id = %(company_id)s
+                  {svl_pid_filter}
+                  {svl_cat_filter}
+                GROUP BY svl.product_id
+            )
             SELECT 
-                sq.product_id,
-                sq.lot_id,
-                sq.location_id,
-                SUM(sq.quantity) AS qty,
-                SUM(sq.quantity * COALESCE(
+                r.product_id,
+                r.lot_id,
+                r.location_id,
+                r.qty,
+                (r.qty * COALESCE(
+                    hc.cost,
                     (pp.standard_price->>%(company_id_str)s)::numeric,
                     (pp.standard_price->>'1')::numeric,
                     (pp.standard_price->>'2')::numeric,
+                    (pp.standard_price->>'3')::numeric,
+                    (pp.standard_price->>'4')::numeric,
+                    (pp.standard_price->>'5')::numeric,
+                    (pp.standard_price->>'6')::numeric,
+                    (pp.standard_price->>'7')::numeric,
+                    (pp.standard_price->>'8')::numeric,
                     0.0
                 )) AS val
-            FROM stock_quant sq
-            JOIN product_product pp ON sq.product_id = pp.id
-            JOIN product_template pt ON pp.product_tmpl_id = pt.id
-            WHERE sq.location_id = ANY(%(selected_locations)s)
-              AND sq.quantity > 0
-              {val_filter_sql}
-            GROUP BY sq.product_id, sq.lot_id, sq.location_id, pp.standard_price
-            HAVING SUM(sq.quantity) != 0
+            FROM reconstructed r
+            JOIN product_product pp ON r.product_id = pp.id
+            LEFT JOIN hist_costs hc ON r.product_id = hc.product_id
+            WHERE r.qty != 0
             LIMIT 5000
         """
         cr.execute(query, params)
         rows = cr.dictfetchall()
 
-        # 3. Insert transient records in batch
         vals_list = []
         for r in rows:
             qty = float(r['qty'] or 0.0)
@@ -691,6 +1099,8 @@ class ZunaxInventoryDashboard(models.AbstractModel):
         active_company_ids = []
         if company_ids:
             active_company_ids = [int(c) for c in company_ids if int(c) in allowed_companies]
+        else:
+            active_company_ids = list(allowed_companies)
         if not active_company_ids:
             active_company_ids = [self.env.company.id]
 
@@ -706,46 +1116,165 @@ class ZunaxInventoryDashboard(models.AbstractModel):
         if not date_to:
             date_to = datetime.now().strftime('%Y-%m-%d')
 
+        # Convert local timezone date to UTC for database query alignment
+        user_tz = pytz.timezone(self.env.user.tz or self._context.get('tz') or 'UTC')
+        local_to = datetime.strptime(f"{date_to[:10]} 23:59:59", "%Y-%m-%d %H:%M:%S")
+        target_date_utc = user_tz.localize(local_to).astimezone(pytz.utc).strftime("%Y-%m-%d %H:%M:%S")
+
         selected_location_ids = l_ids
         if not selected_location_ids:
             selected_location_ids = self._get_location_ids(active_company_ids)
         if not selected_location_ids:
             selected_location_ids = [0]
 
-        # Target date string parsed to datetime
-        dt_to_parsed = datetime.strptime(date_to[:10], '%Y-%m-%d')
-        
-        # Max datetime is dt_to - days_min
-        max_dt = dt_to_parsed - timedelta(days=days_min)
-        max_dt_str = max_dt.strftime('%Y-%m-%d 23:59:59')
-        
-        domain = [
-            ('company_id', 'in', active_company_ids),
-            ('location_id', 'in', selected_location_ids),
-            ('quantity', '>', 0)
-        ]
-        
-        if days_max < 9999:
-            min_dt = dt_to_parsed - timedelta(days=days_max)
-            min_dt_str = min_dt.strftime('%Y-%m-%d 00:00:00')
-            domain.append(('in_date', '>=', min_dt_str))
-            domain.append(('in_date', '<=', max_dt_str))
-        else:
-            # Above 360 Days
-            domain.append(('in_date', '<', max_dt_str))
+        # 1. Clear old records created by current user
+        self.env['zunax.opening.valuation.line'].search([('create_uid', '=', self.env.user.id)]).unlink()
 
-        if p_ids:
-            domain.append(('product_id', 'in', p_ids))
-        if expanded_category_ids:
-            domain.append(('product_categ_id', 'in', expanded_category_ids))
+        # 2. Get ageing data from the helper method
+        ageing_data = self._get_ageing_analysis(
+            active_company_ids[0], selected_location_ids, target_date_utc,
+            expanded_category_ids, p_ids
+        )
+
+        # 3. Determine the bucket keys to read based on days_min and days_max
+        if days_min == 181 and days_max == 365:
+            qty_key = 'qty_360'
+            val_key = 'val_360'
+        elif days_min >= 366:
+            qty_key = 'qty_above'
+            val_key = 'val_above'
+        else:
+            qty_key = f'qty_{days_max}'
+            val_key = f'val_{days_max}'
+
+        # 4. Populate list view rows
+        vals_list = []
+        for line in ageing_data:
+            qty = float(line.get(qty_key, 0.0))
+            val = float(line.get(val_key, 0.0))
+            if qty > 0:
+                vals_list.append({
+                    'product_id': line['product_id'],
+                    'lot_id': line['lot_id'],
+                    'location_id': line['location_id'],
+                    'last_moved_date': line['last_moved_date'],
+                    'quantity': qty,
+                    'value': val,
+                    'unit_price': round(val / qty, 2) if qty else 0.0,
+                })
+
+        lines = self.env['zunax.opening.valuation.line'].create(vals_list)
+
+        # 5. Return the loaded action with custom title and domain
+        action = self.env["ir.actions.actions"]._for_xml_id("zunax_inventory_dashboard.action_zunax_opening_valuation_lines")
+        action['name'] = f"Stock Aged {days_min}-{days_max if days_max < 9999 else 'Above'} Days (as of {date_to})"
+        action['domain'] = [('id', 'in', lines.ids)]
+        return action
+
+    def _get_gate_entry_pending_picking_ids(self, active_company_ids, dt_from, dt_to, expanded_category_ids=None, p_ids=None):
+        """Find picking IDs where Gate Entry is confirmed but receipt state is not done (without location filter)."""
+        cr = self.env.cr
+        cr.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'gate_entry'
+            );
+        """)
+        has_gate_entry = cr.fetchone()[0]
+        if not has_gate_entry:
+            return []
+
+        cr.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_name = 'gate_entry_non_po'
+            );
+        """)
+        has_gate_entry_non_po = cr.fetchone()[0]
+
+        ge_non_po_join = "LEFT JOIN gate_entry_non_po gen ON gen.id = sp.gate_entry_num_for_non_po" if has_gate_entry_non_po else ""
+        ge_non_po_cond = "OR (gen.id IS NOT NULL AND gen.state = 'confirm')" if has_gate_entry_non_po else ""
+        ge_non_po_date = ", gen.entry_date" if has_gate_entry_non_po else ""
+
+        sm_pid_filter = "AND sm.product_id = ANY(%(product_ids)s)" if p_ids else ""
+        sm_cat_filter = "AND pt.categ_id = ANY(%(category_ids)s)" if expanded_category_ids else ""
+
+        query = f"""
+            SELECT DISTINCT sp.id
+            FROM stock_picking sp
+            JOIN stock_move sm ON sm.picking_id = sp.id
+            JOIN product_product pp ON sm.product_id = pp.id
+            JOIN product_template pt ON pp.product_tmpl_id = pt.id
+            JOIN stock_picking_type spt ON spt.id = sp.picking_type_id
+            LEFT JOIN gate_entry_picking_rel rel ON rel.picking_id = sp.id
+            LEFT JOIN gate_entry ge ON ge.id = rel.gate_entry_id
+            {ge_non_po_join}
+            WHERE sp.company_id = ANY(%(active_company_ids)s)
+              AND sp.state NOT IN ('done', 'cancel')
+              AND sm.state NOT IN ('done', 'cancel')
+              AND spt.code = 'incoming'
+              AND (
+                  (ge.id IS NOT NULL AND ge.state = 'confirm')
+                  OR (sp.gate_entry_num IS NOT NULL AND sp.gate_entry_num != '')
+                  {ge_non_po_cond}
+              )
+              AND COALESCE(ge.entry_date {ge_non_po_date}, sp.scheduled_date, sp.date) >= %(dt_from)s
+              AND COALESCE(ge.entry_date {ge_non_po_date}, sp.scheduled_date, sp.date) <= %(dt_to)s
+              {sm_pid_filter}
+              {sm_cat_filter}
+        """
+        params = {
+            'active_company_ids': active_company_ids,
+            'dt_from': dt_from,
+            'dt_to': dt_to,
+            'product_ids': p_ids or [],
+            'category_ids': expanded_category_ids or [],
+        }
+        cr.execute(query, params)
+        return [r[0] for r in cr.fetchall()]
+
+    @api.model
+    def action_open_gate_entry_pending_pickings(self, company_ids=None, date_from=None, date_to=None, category_ids=None, product_ids=None, location_ids=None):
+        self = self.sudo()
+        allowed_companies = self.env.companies.ids
+        if company_ids:
+            active_company_ids = [int(c) for c in company_ids if int(c) in allowed_companies]
+        else:
+            active_company_ids = [self.env.company.id]
+        if not active_company_ids:
+            active_company_ids = [self.env.company.id]
+
+        c_ids = [int(c) for c in category_ids] if category_ids else []
+        p_ids = [int(p) for p in product_ids] if product_ids else []
+
+        expanded_category_ids = []
+        if c_ids:
+            expanded_category_ids = self.env['product.category'].search([('id', 'child_of', c_ids)]).ids
+
+        if not date_from and not date_to:
+            current_year = datetime.now().year
+            date_from = f"{current_year}-01-01"
+            date_to = datetime.now().strftime('%Y-%m-%d')
+        elif not date_from:
+            date_from = "2020-01-01"
+        elif not date_to:
+            date_to = datetime.now().strftime('%Y-%m-%d')
+
+        dt_from = f"{date_from} 00:00:00"
+        dt_to = f"{date_to} 23:59:59"
+
+        picking_ids = self._get_gate_entry_pending_picking_ids(
+            active_company_ids, dt_from, dt_to,
+            expanded_category_ids, p_ids
+        )
 
         return {
-            'name': f"Stock Aged {days_min}-{days_max if days_max < 9999 else 'Above'} Days",
-            'type': "ir.actions.act_window",
-            'res_model': "stock.quant",
-            'views': [[False, "list"], [False, "form"]],
-            'domain': domain,
-            'target': "current"
+            'name': 'Gate Entry Done (GRN Pending) Pickings',
+            'type': 'ir.actions.act_window',
+            'res_model': 'stock.picking',
+            'views': [[False, 'list'], [False, 'form']],
+            'domain': [('id', 'in', picking_ids)],
+            'target': 'current',
         }
 
 
@@ -788,10 +1317,12 @@ class StockQuant(models.Model):
         for quant in self:
             quant.unit_price = quant.product_id.standard_price or 0.0
 
-    @api.depends('quantity', 'unit_price')
+    @api.depends('quantity', 'unit_price', 'company_id')
     def _compute_value(self):
         for quant in self:
             quant.value = quant.quantity * quant.unit_price
+            if hasattr(quant, 'currency_id'):
+                quant.currency_id = quant.company_id.currency_id or self.env.company.currency_id
 
 
 
@@ -807,6 +1338,7 @@ class ZunaxOpeningValuationLine(models.TransientModel):
     quantity = fields.Float(string='Qty')
     value = fields.Float(string='Value')
     unit_price = fields.Float(string='Unit Price')
+    last_moved_date = fields.Datetime(string='Last Moved Date & Time')
 
     def action_view_stock_moves(self):
         self.ensure_one()

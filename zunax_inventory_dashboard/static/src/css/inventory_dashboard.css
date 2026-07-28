@@ -238,6 +238,9 @@
 .o_zunax_inventory_dashboard .kpi-opening-value {
     border-left: 4px solid var(--primary-color) !important;
 }
+.o_zunax_inventory_dashboard .kpi-gate-entry-pending {
+    border-left: 4px solid var(--status-pending) !important;
+}
 .o_zunax_inventory_dashboard .kpi-grn-value {
     border-left: 4px solid var(--status-approved) !important;
 }

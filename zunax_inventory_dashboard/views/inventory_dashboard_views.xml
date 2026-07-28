@@ -42,6 +42,7 @@
                 <field name="quantity" string="Qty" sum="Total Quantity"/>
                 <field name="value" string="Value" sum="Total Value"/>
                 <field name="unit_price" string="Unit Price"/>
+                <field name="last_moved_date" string="Last Moved Date &amp; Time"/>
                 <button name="action_view_stock_moves" string="History" type="object" class="btn-link" icon="fa-history"/>
             </list>
         </field>

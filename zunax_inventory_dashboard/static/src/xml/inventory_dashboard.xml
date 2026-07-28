@@ -151,6 +151,12 @@
                             <span class="ss-kpi-value">₹<t t-esc="formatVal(state.data.kpis.opening_value)"/></span>
                             <span class="ss-kpi-sub">Total stock valuation before Start Date</span>
                         </div>
+                        <!-- Gate Entry Done, GRN Pending -->
+                        <div class="ss-kpi-card kpi-gate-entry-pending cursor-pointer" t-on-click="openGateEntryPendingPickings">
+                            <span class="ss-kpi-title">Gate Entry Done (GRN Pending)</span>
+                            <span class="ss-kpi-value text-warning">₹<t t-esc="formatVal(state.data.kpis.gate_entry_pending_value)"/></span>
+                            <span class="ss-kpi-sub"><t t-esc="state.data.kpis.gate_entry_pending_count || 0"/> Pickings Pending GRN</span>
+                        </div>
                         <!-- GRN Value -->
                         <div class="ss-kpi-card kpi-grn-value cursor-pointer" t-on-click="openReceiptMoves">
                             <span class="ss-kpi-title">GRN Value</span>
@@ -217,17 +223,17 @@
                             <span class="ss-kpi-value" style="color: #b91c1c;">₹<t t-esc="formatValNoDecimal(state.data.kpis.ageing_180)"/></span>
                             <span class="ss-kpi-sub">Stock aged 151 to 180 days</span>
                         </div>
-                        <!-- Aged 181-360 Days -->
-                        <div class="ss-kpi-card kpi-ageing-360 cursor-pointer" t-on-click="() => this.openAgedStock(181, 360)" style="border-left: 4px solid #991b1b;">
-                            <span class="ss-kpi-title">181 - 360 Days</span>
+                        <!-- Aged 181-365 Days -->
+                        <div class="ss-kpi-card kpi-ageing-360 cursor-pointer" t-on-click="() => this.openAgedStock(181, 365)" style="border-left: 4px solid #991b1b;">
+                            <span class="ss-kpi-title">181 - 365 Days</span>
                             <span class="ss-kpi-value" style="color: #991b1b;">₹<t t-esc="formatValNoDecimal(state.data.kpis.ageing_360)"/></span>
-                            <span class="ss-kpi-sub">Stock aged 181 to 360 days</span>
+                            <span class="ss-kpi-sub">Stock aged 181 to 365 days</span>
                         </div>
-                        <!-- Aged Above 360 Days -->
-                        <div class="ss-kpi-card kpi-ageing-above cursor-pointer" t-on-click="() => this.openAgedStock(361, 9999)" style="border-left: 4px solid #7f1d1d;">
-                            <span class="ss-kpi-title">Above 360 Days</span>
+                        <!-- Aged Above 365 Days -->
+                        <div class="ss-kpi-card kpi-ageing-above cursor-pointer" t-on-click="() => this.openAgedStock(366, 9999)" style="border-left: 4px solid #7f1d1d;">
+                            <span class="ss-kpi-title">Above 365 Days</span>
                             <span class="ss-kpi-value" style="color: #7f1d1d;">₹<t t-esc="formatValNoDecimal(state.data.kpis.ageing_above)"/></span>
-                            <span class="ss-kpi-sub">Stock aged above 360 days</span>
+                            <span class="ss-kpi-sub">Stock aged above 365 days</span>
                         </div>
                     </div>
                 </t>
