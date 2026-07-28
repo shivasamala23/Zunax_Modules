@@ -195,7 +195,7 @@
                         <div class="ss-panel">
                             <div class="ss-panel-header">
                                 <h2 class="ss-panel-title">RFQ Status Breakdown</h2>
-                                <span class="ss-panel-subtitle">Conversion Rate: <t t-esc="state.data.rfq_status.metrics.conversion_pct.toFixed(1)"/>% (<t t-esc="state.data.rfq_status.metrics.conversion_pct_val.toFixed(1)"/>% by Value) | Avg. RFQ to Confirmation: <t t-esc="state.data.rfq_status.metrics.avg_cycle_time.toFixed(1)"/> days</span>
+                                <span class="ss-panel-subtitle">Conversion Rate: <t t-esc="(state.data.rfq_status?.metrics?.conversion_pct || 0).toFixed(1)"/>% (<t t-esc="(state.data.rfq_status?.metrics?.conversion_pct_val || 0).toFixed(1)"/>% by Value) | Avg. RFQ to Confirmation: <t t-esc="(state.data.rfq_status?.metrics?.avg_cycle_time || 0).toFixed(1)"/> days</span>
                             </div>
                             <div class="ss-table-wrapper">
                                 <table class="ss-table">
@@ -218,7 +218,7 @@
                                                 </td>
                                                 <td t-att-style="rfq.is_child ? 'color: var(--text-main) !important; font-size: 0.98em !important;' : ''"><t t-esc="rfq.count"/></td>
                                                 <td t-att-style="rfq.is_child ? 'color: var(--text-main) !important; font-size: 0.98em !important;' : ''">₹<t t-esc="formatValue(rfq.value)"/></td>
-                                                <td t-att-style="rfq.is_child ? 'color: var(--text-main) !important; font-size: 0.98em !important;' : ''"><t t-esc="rfq.pct.toFixed(1)"/>%</td>
+                                                <td t-att-style="rfq.is_child ? 'color: var(--text-main) !important; font-size: 0.98em !important;' : ''"><t t-esc="(rfq.pct || 0).toFixed(1)"/>%</td>
                                             </tr>
                                         </t>
                                     </tbody>
@@ -419,7 +419,7 @@
                                                 <td>₹<t t-esc="formatValue(item.spend)"/></td>
                                                 <td>
                                                     <div class="d-flex align-items-center gap-2">
-                                                        <span><t t-esc="item.pct_total.toFixed(1)"/>%</span>
+                                                        <span><t t-esc="(item.pct_total || 0).toFixed(1)"/>%</span>
                                                         <div class="progress-bar-container" style="width: 50px;">
                                                             <div class="progress-bar-fill" t-attf-style="width: {{item.pct_total}}%;"/>
                                                         </div>
@@ -544,7 +544,7 @@
                                                 <td t-on-click="() => this.openModelList('purchase.order', [['partner_id.name', '=', vend.vendor], ['order_line.qty_received', '>', 0]], {useDateFilter: true, dateField: 'date_order'})"><t t-esc="formatQty(vend.pending_qty)"/></td>
                                                 <td t-on-click="() => this.openModelList('purchase.order', [['partner_id.name', '=', vend.vendor], ['order_line.qty_received', '>', 0]], {useDateFilter: true, dateField: 'date_order'})">
                                                     <span class="ss-badge" t-att-class="vend.otd_pct &gt;= 90 ? 'badge-green' : (vend.otd_pct &gt;= 75 ? 'badge-amber' : 'badge-red')">
-                                                        <t t-esc="vend.otd_pct.toFixed(0)"/>%
+                                                        <t t-esc="(vend.otd_pct || 0).toFixed(0)"/>%
                                                     </span>
                                                 </td>
                                                 <td t-on-click="() => this.openModelList('purchase.order', [['partner_id.name', '=', vend.vendor], ['order_line.qty_received', '>', 0]], {useDateFilter: true, dateField: 'date_order'})">

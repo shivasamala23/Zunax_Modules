@@ -44,7 +44,7 @@ class PurchaseDashboard(models.AbstractModel):
     def _get_category_filter(self, alias, category_ids=None):
         if not category_ids:
             return "1=1", []
-        expanded = self.env['product.category'].search([('id', 'child_of', category_ids)]).ids
+        expanded = self.env['product.category'].sudo().search([('id', 'child_of', category_ids)]).ids
         if not expanded:
             return "1=1", []
         expanded = list(set(expanded))
@@ -103,7 +103,7 @@ class PurchaseDashboard(models.AbstractModel):
             exclude_partner_ids = list(set(exclude_partner_ids + all_branch_partner_ids))
 
         # Get active categories list for dropdown
-        categories_data = self.env['product.category'].search_read([], ['id', 'name', 'complete_name'])
+        categories_data = self.env['product.category'].sudo().search_read([], ['id', 'name', 'complete_name'])
 
         cr = self.env.cr
         # Get active vendors list (who have POs in the system) for the dropdown
@@ -234,11 +234,20 @@ class PurchaseDashboard(models.AbstractModel):
             JOIN stock_picking_type spt ON spt.id = sp.picking_type_id
             WHERE sp.company_id IN %s AND spt.code = 'incoming'
               AND sp.state IN ('assigned', 'confirmed') AND sp.scheduled_date < NOW()
+              AND {date_clause_sp}
               {exclude_sp}
-        """, [company_ids] + exclude_sp_params)
+        """, [company_ids] + date_params_sp + exclude_sp_params)
         delayed_deliveries = cr.fetchone()[0] or 0
 
-        # Critical Suppliers - limit to last 90 days for performance
+        # Critical Suppliers - filter by date range, fallback to last 90 days
+        date_clause_sp_done, date_params_sp_done = self._get_date_filter('sp', 'date_done', year, month, date_from, date_to)
+        if date_clause_sp_done != "1=1":
+            critical_date_clause = date_clause_sp_done
+            critical_date_params = date_params_sp_done
+        else:
+            critical_date_clause = "sp.date_done >= CURRENT_DATE - INTERVAL '90 days'"
+            critical_date_params = []
+
         cr.execute(f"""
             SELECT COUNT(*) FROM (
                 SELECT sp.partner_id,
@@ -247,12 +256,13 @@ class PurchaseDashboard(models.AbstractModel):
                 JOIN stock_picking_type spt ON spt.id = sp.picking_type_id
                 WHERE sp.company_id IN %s AND spt.code = 'incoming' AND sp.state = 'done'
                   AND sp.partner_id IS NOT NULL
-                  AND sp.date_done >= CURRENT_DATE - INTERVAL '90 days'
+                  AND {critical_date_clause}
                   {exclude_sp}
                 GROUP BY sp.partner_id
             ) sub WHERE otd_rate < 70
-        """, [company_ids] + exclude_sp_params)
+        """, [company_ids] + critical_date_params + exclude_sp_params)
         critical_suppliers = cr.fetchone()[0] or 0
+
 
         return {
             'pr_pending': pr_pending,
@@ -673,7 +683,6 @@ class PurchaseDashboard(models.AbstractModel):
                       AND aml.account_id IN %s
                       AND am.state = 'posted'
                       AND aml.reconciled = FALSE
-                      AND am.move_type = 'in_invoice'
                       AND {date_clause_am} AND {partner_clause_am} AND EXISTS (
                           SELECT 1 FROM account_move_line aml2
                           JOIN product_product pp ON pp.id = aml2.product_id
@@ -696,7 +705,6 @@ class PurchaseDashboard(models.AbstractModel):
                       AND aml.account_id IN %s
                       AND am.state = 'posted'
                       AND aml.reconciled = FALSE
-                      AND am.move_type = 'in_invoice'
                       AND {date_clause_am} AND {partner_clause_am} {exclude_am}
                 """, [company_ids, tuple(payable_account_ids)] + date_params_am + partner_params + exclude_am_params)
             row = cr.fetchone()
@@ -770,6 +778,8 @@ class PurchaseDashboard(models.AbstractModel):
 
         exclude_clause, exclude_params = self._get_exclude_partner_clause('aml', exclude_partner_ids)
 
+        having_clause = "HAVING COALESCE(SUM(-aml.amount_residual), 0) <> 0" if not (vendor_ids or vendor_search) else ""
+
         # Per-vendor aging query
         cr.execute(f"""
             SELECT
@@ -802,18 +812,19 @@ class PurchaseDashboard(models.AbstractModel):
               AND am.state = 'posted'
               AND aml.reconciled = FALSE
               AND aml.partner_id IS NOT NULL
-              AND am.move_type = 'in_invoice'
               AND {vendor_clause} {exclude_clause}
             GROUP BY aml.partner_id, rp.name
-            HAVING COALESCE(SUM(-aml.amount_residual), 0) <> 0
+            {having_clause}
             ORDER BY total_due DESC
             LIMIT 100
         """, [company_ids_tup, tuple(payable_account_ids)] + vendor_params + exclude_params)
 
         rows = cr.fetchall()
         vendors = []
+        found_partner_ids = set()
         for r in rows:
             partner_id, name, total, current, d030, d3160, d6190, d90 = r
+            found_partner_ids.add(partner_id)
             vendors.append({
                 'partner_id': partner_id,
                 'vendor': name,
@@ -824,8 +835,25 @@ class PurchaseDashboard(models.AbstractModel):
                 'days_61_90': float(d6190 or 0),
                 'days_above_90': float(d90 or 0),
             })
-        vendors.sort(key=lambda v: v['total_due'], reverse=True)
 
+        # If specific vendors were selected, ensure any vendor with 0 balance is also returned
+        if vendor_ids:
+            missing_ids = [vid for vid in vendor_ids if vid not in found_partner_ids]
+            if missing_ids:
+                partners = self.env['res.partner'].sudo().browse(missing_ids)
+                for p in partners:
+                    vendors.append({
+                        'partner_id': p.id,
+                        'vendor': p.name,
+                        'total_due': 0.0,
+                        'current': 0.0,
+                        'days_0_30': 0.0,
+                        'days_31_60': 0.0,
+                        'days_61_90': 0.0,
+                        'days_above_90': 0.0,
+                    })
+
+        vendors.sort(key=lambda v: v['total_due'], reverse=True)
 
         # Summary totals
         summary = {
@@ -837,7 +865,7 @@ class PurchaseDashboard(models.AbstractModel):
             'days_above_90': sum(v['days_above_90'] for v in vendors),
         }
 
-        # Get all vendors list for autocomplete dropdown (distinct partners with payables)
+        # Get all vendors list for autocomplete dropdown (distinct partners with posted payable entries)
         cr.execute(f"""
             SELECT DISTINCT aml.partner_id, rp.name
             FROM account_move_line aml
@@ -846,9 +874,7 @@ class PurchaseDashboard(models.AbstractModel):
             WHERE aml.company_id IN %s
               AND aml.account_id IN %s
               AND am.state = 'posted'
-              AND aml.reconciled = FALSE
               AND aml.partner_id IS NOT NULL
-              AND am.move_type = 'in_invoice'
               {exclude_clause}
             ORDER BY rp.name
         """, [company_ids_tup, tuple(payable_account_ids)] + exclude_params)
@@ -1128,7 +1154,7 @@ class PurchaseDashboard(models.AbstractModel):
 
     def _get_spend_analysis(self, company_ids, year=None, month=None, category_ids=None, exclude_partner_ids=None):
         cr = self.env.cr
-        companies = self.env['res.company'].search([])
+        companies = self.env['res.company'].sudo().search([])
         branch_partner_ids = companies.mapped('partner_id').ids
         branch_partners_tup = tuple(branch_partner_ids) if branch_partner_ids else (0,)
 
@@ -1335,7 +1361,8 @@ class PurchaseDashboard(models.AbstractModel):
         return [r[0] for r in cr.fetchall()]
 
     @api.model
-    def get_critical_supplier_ids(self, company_id=None, company_ids=None, exclude_partner_ids=None, exclude_branches=False):
+    def get_critical_supplier_ids(self, company_id=None, company_ids=None, exclude_partner_ids=None, exclude_branches=False,
+                                  year=None, month=None, date_from=None, date_to=None):
         if not company_id:
             company_id = self.env.company.id
         if exclude_partner_ids:
@@ -1370,6 +1397,15 @@ class PurchaseDashboard(models.AbstractModel):
 
         exclude_sp, exclude_sp_params = self._get_exclude_partner_clause('sp', exclude_partner_ids)
 
+        # Critical Suppliers - filter by date range, fallback to last 90 days
+        date_clause_sp_done, date_params_sp_done = self._get_date_filter('sp', 'date_done', year, month, date_from, date_to)
+        if date_clause_sp_done != "1=1":
+            critical_date_clause = date_clause_sp_done
+            critical_date_params = date_params_sp_done
+        else:
+            critical_date_clause = "sp.date_done >= CURRENT_DATE - INTERVAL '90 days'"
+            critical_date_params = []
+
         cr = self.env.cr
         cr.execute(f"""
             SELECT sp.partner_id
@@ -1377,11 +1413,11 @@ class PurchaseDashboard(models.AbstractModel):
             JOIN stock_picking_type spt ON spt.id = sp.picking_type_id
             WHERE sp.company_id IN %s AND spt.code = 'incoming' AND sp.state = 'done'
               AND sp.partner_id IS NOT NULL
-              AND sp.date_done >= CURRENT_DATE - INTERVAL '90 days'
+              AND {critical_date_clause}
               {exclude_sp}
             GROUP BY sp.partner_id
             HAVING (SUM(CASE WHEN sp.date_done <= sp.scheduled_date THEN 1 ELSE 0 END)::float / NULLIF(COUNT(sp.id), 0) * 100) < 70
-        """, [company_ids_tup] + exclude_sp_params)
+        """, [company_ids_tup] + critical_date_params + exclude_sp_params)
         return [r[0] for r in cr.fetchall()]
 
     @api.model
@@ -1450,7 +1486,7 @@ class PurchaseDashboard(models.AbstractModel):
             extra_clauses.append("pol.product_id IN %s")
             extra_params.append(tuple(product_ids))
         if category_ids:
-            expanded = self.env['product.category'].search([('id', 'child_of', category_ids)]).ids
+            expanded = self.env['product.category'].sudo().search([('id', 'child_of', category_ids)]).ids
             if expanded:
                 extra_clauses.append("pt2.categ_id IN %s")
                 extra_params.append(tuple(list(set(expanded))))
@@ -1678,9 +1714,9 @@ class PurchaseDashboard(models.AbstractModel):
     def get_products_by_category(self, company_id=None, category_id=None, company_ids=None):
         if not category_id:
             return []
-        categ_ids = self.env['product.category'].search([('id', 'child_of', int(category_id))]).ids
+        categ_ids = self.env['product.category'].sudo().search([('id', 'child_of', int(category_id))]).ids
         # Find active products in these categories
-        products = self.env['product.product'].search_read(
+        products = self.env['product.product'].sudo().search_read(
             [('categ_id', 'in', categ_ids), ('active', '=', True)],
             ['id', 'name', 'default_code']
         )
@@ -1726,8 +1762,8 @@ class PurchaseDashboard(models.AbstractModel):
         if product_ids:
             product_ids_list = product_ids
         elif category_id:
-            categ_ids = self.env['product.category'].search([('id', 'child_of', int(category_id))]).ids
-            product_ids_list = self.env['product.product'].search([('categ_id', 'in', categ_ids), ('active', '=', True)]).ids
+            categ_ids = self.env['product.category'].sudo().search([('id', 'child_of', int(category_id))]).ids
+            product_ids_list = self.env['product.product'].sudo().search([('categ_id', 'in', categ_ids), ('active', '=', True)]).ids
             # Limit products if not filtered to avoid memory limit issues
             product_ids_list = product_ids_list[:100]
 

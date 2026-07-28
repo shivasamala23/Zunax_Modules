@@ -6,6 +6,7 @@ import { Component, onWillStart, useState, useEffect } from "@odoo/owl";
 import { Layout } from "@web/search/layout";
 import { _t } from "@web/core/l10n/translation";
 import { loadBundle } from "@web/core/assets";
+import { user } from "@web/core/user";
 
 export class PurchaseDashboard extends Component {
     static template = "ss_purchase_dashboard.PurchaseDashboard";
@@ -27,6 +28,15 @@ export class PurchaseDashboard extends Component {
 
         // Load filters from sessionStorage if available
         const savedFilters = sessionStorage.getItem('purchase_dashboard_filters');
+        const today = new Date();
+        const pad = n => String(n).padStart(2, '0');
+        const defaultDateTo = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+        const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+        const defaultDateFrom = `${lastMonth.getFullYear()}-${pad(lastMonth.getMonth() + 1)}-${pad(lastMonth.getDate())}`;
+
+        this.defaultDateFrom = defaultDateFrom;
+        this.defaultDateTo = defaultDateTo;
+
         let initialFilters = {
             year: '2026', // Set default year to 2026 to ensure data renders
             month: 'all',
@@ -39,14 +49,20 @@ export class PurchaseDashboard extends Component {
         };
         if (savedFilters) {
             try {
-                initialFilters = JSON.parse(savedFilters);
+                const parsed = JSON.parse(savedFilters);
+                initialFilters = {
+                    ...initialFilters,
+                    ...parsed,
+                    date_from: parsed.date_from || defaultDateFrom,
+                    date_to: parsed.date_to || defaultDateTo,
+                };
             } catch (e) {
                 console.error("Failed to parse saved filters:", e);
             }
         }
 
         // Load Price Tendency filters from sessionStorage if available
-        const savedPtFilters = sessionStorage.getItem('purchase_dashboard_pt_filters');
+        const savedPtFilters = sessionStorage.getItem('purchase_dashboard_pt_filters_' + user.userId);
         let initialPtFilters = {
             granularity: 'month',
             productSearchQuery: '',
@@ -67,7 +83,7 @@ export class PurchaseDashboard extends Component {
         }
 
         // Load Aging Report filters from sessionStorage if available
-        const savedAgingFilters = sessionStorage.getItem('purchase_dashboard_aging_filters');
+        const savedAgingFilters = sessionStorage.getItem('purchase_dashboard_aging_filters_' + user.userId);
         let initialAgingFilters = {
             loading: false,
             vendors: [],
@@ -87,7 +103,7 @@ export class PurchaseDashboard extends Component {
         }
 
         // Load Price Comparison filters from sessionStorage if available
-        const savedPcFilters = sessionStorage.getItem('purchase_dashboard_pc_filters');
+        const savedPcFilters = sessionStorage.getItem('purchase_dashboard_pc_filters_' + user.userId);
         let initialPcFilters = {
             selectedCategoryId: null,
             selectedCategoryName: 'Select Category',
@@ -241,7 +257,7 @@ export class PurchaseDashboard extends Component {
 
     async loadDashboardData() {
         try {
-            sessionStorage.setItem('purchase_dashboard_filters', JSON.stringify(this.state.filters));
+            sessionStorage.setItem('purchase_dashboard_filters_' + user.userId, JSON.stringify(this.state.filters));
             this.state.loading = true;
             const currentCompanyId = this.companyService.currentCompany.id;
             // Collect ALL active company IDs from the Odoo company switcher
@@ -298,7 +314,7 @@ export class PurchaseDashboard extends Component {
     async loadAgingReport() {
         try {
             const ar = this.state.agingReport;
-            sessionStorage.setItem('purchase_dashboard_aging_filters', JSON.stringify({
+            sessionStorage.setItem('purchase_dashboard_aging_filters_' + user.userId, JSON.stringify({
                 selectedVendorIds: ar.selectedVendorIds,
                 vendorSearch: ar.vendorSearch,
             }));
@@ -852,7 +868,7 @@ export class PurchaseDashboard extends Component {
     async loadPriceTendency() {
         try {
             const pt = this.state.priceTendency;
-            sessionStorage.setItem('purchase_dashboard_pt_filters', JSON.stringify({
+            sessionStorage.setItem('purchase_dashboard_pt_filters_' + user.userId, JSON.stringify({
                 granularity: pt.granularity,
                 productNameSearch: pt.productNameSearch,
                 selectedProductIds: pt.selectedProductIds,
@@ -1303,6 +1319,10 @@ export class PurchaseDashboard extends Component {
                     company_ids: activeCompanyIds,
                     exclude_partner_ids: this.state.filters.exclude_partner_ids,
                     exclude_branches: this.state.filters.exclude_branches === 'without',
+                    year: this.state.filters.year,
+                    month: this.state.filters.month,
+                    date_from: this.state.filters.date_from || null,
+                    date_to: this.state.filters.date_to || null,
                 }
             );
             this.openModelList('res.partner', [['id', 'in', partnerIds]], {
@@ -1346,10 +1366,10 @@ export class PurchaseDashboard extends Component {
         } else if (rfq.is_child && rfq.aging_type) {
             const d3 = new Date(Date.now() - 3 * 86400000).toISOString().split('T')[0];
             const d10 = new Date(Date.now() - 10 * 86400000).toISOString().split('T')[0];
-            
+
             let domain = [['state', 'in', ['draft', 'sent']]];
             let name = '';
-            
+
             if (rfq.aging_type === '1_3') {
                 domain.push(['date_order', '>=', d3]);
                 name = 'RFQ Aging (1-3 Days)';
@@ -1361,7 +1381,7 @@ export class PurchaseDashboard extends Component {
                 domain.push(['date_order', '<', d10]);
                 name = 'RFQ Aging (10+ Days)';
             }
-            
+
             this.openModelList('purchase.order', domain, { useDateFilter: true, dateField: 'date_order', name: name });
         }
     }
@@ -1437,7 +1457,7 @@ export class PurchaseDashboard extends Component {
 
     async loadPriceComparison() {
         try {
-            sessionStorage.setItem('purchase_dashboard_pc_filters', JSON.stringify({
+            sessionStorage.setItem('purchase_dashboard_pc_filters_' + user.userId, JSON.stringify({
                 selectedCategoryId: this.state.priceComparison.selectedCategoryId,
                 selectedCategoryName: this.state.priceComparison.selectedCategoryName,
                 selectedProductIds: this.state.priceComparison.selectedProductIds,
