@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Cancellation Reasons Form View -->
+    <record id="view_it_cancellation_reason_form" model="ir.ui.view">
+        <field name="name">it.cancellation.reason.form</field>
+        <field name="model">it.cancellation.reason</field>
+        <field name="arch" type="xml">
+            <form string="Cancellation Reason">
+                <sheet>
+                    <group>
+                        <field name="name" placeholder="e.g. Software issue resolved itself"/>
+                        <field name="active" widget="boolean_toggle"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Cancellation Reasons List View -->
+    <record id="view_it_cancellation_reason_tree" model="ir.ui.view">
+        <field name="name">it.cancellation.reason.list</field>
+        <field name="model">it.cancellation.reason</field>
+        <field name="arch" type="xml">
+            <list string="Cancellation Reasons" editable="bottom">
+                <field name="name"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Action for Cancellation Reasons -->
+    <record id="action_it_cancellation_reason" model="ir.actions.act_window">
+        <field name="name">Cancellation Reasons</field>
+        <field name="res_model">it.cancellation.reason</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Add a Cancellation Reason!
+            </p>
+            <p>
+                Configure predefined cancellation reasons that employees will select when cancelling their tickets.
+            </p>
+        </field>
+    </record>
+</odoo>
+

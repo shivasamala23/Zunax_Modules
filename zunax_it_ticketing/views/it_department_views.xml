@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- IT Department Form View -->
+    <record id="view_it_department_form" model="ir.ui.view">
+        <field name="name">it.department.form</field>
+        <field name="model">it.department</field>
+        <field name="arch" type="xml">
+            <form string="IT Support Department">
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name" class="oe_edit_only"/>
+                        <h1>
+                            <field name="name" placeholder="e.g. Network Support, Software Support"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="email_alias"/>
+                            <field name="manager_id" options="{'no_create': True}"/>
+                            <field name="assigned_employee_id" options="{'no_create': True}"/>
+                        </group>
+                        <group>
+                            <field name="sequence"/>
+                            <field name="active" widget="boolean_toggle"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Support Team Members" name="members">
+                            <field name="member_ids" widget="many2many_tags" placeholder="Select backend support users..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- IT Department List View -->
+    <record id="view_it_department_tree" model="ir.ui.view">
+        <field name="name">it.department.list</field>
+        <field name="model">it.department</field>
+        <field name="arch" type="xml">
+            <list string="IT Support Departments">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="email_alias"/>
+                <field name="manager_id"/>
+                <field name="member_ids" widget="many2many_tags"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- IT Department Kanban Board View -->
+    <record id="view_it_department_kanban" model="ir.ui.view">
+        <field name="name">it.department.kanban</field>
+        <field name="model">it.department</field>
+        <field name="arch" type="xml">
+            <kanban class="oe_background_grey o_kanban_dashboard" create="true">
+                <field name="id"/>
+                <field name="name"/>
+                <field name="ticket_count"/>
+                <field name="resolved_count"/>
+                <field name="manager_id"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex flex-column justify-content-between h-100 p-2">
+                            <div class="o_kanban_card_header">
+                                <div class="o_kanban_card_header_title">
+                                    <h3 class="fw-bold text-primary mb-1"><field name="name"/></h3>
+                                    <div class="text-muted small" t-if="record.manager_id.raw_value">
+                                        <span>Manager: </span><field name="manager_id"/>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Open / Resolved Tickets Count indicators -->
+                            <div class="container o_kanban_card_content mt-3">
+                                <div class="row">
+                                    <div class="col-6 text-center border-end">
+                                        <span class="fs-2 text-danger fw-bold">
+                                            <t t-esc="record.ticket_count.value"/>
+                                        </span>
+                                        <div class="text-muted small">Open Tickets</div>
+                                    </div>
+                                    <div class="col-6 text-center">
+                                        <span class="fs-2 text-success fw-bold">
+                                            <t t-esc="record.resolved_count.value"/>
+                                        </span>
+                                        <div class="text-muted small">Resolved</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Action button to open specific department board -->
+                            <div class="o_kanban_card_manage_pane mt-3 pt-2 border-top d-flex justify-content-between align-items-center">
+                                <button type="object" name="action_view_department_tickets" class="btn btn-primary w-100 btn-sm">
+                                    <i class="fa fa-folder-open me-2"/> Open Ticket Board
+                                </button>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- Action for IT Departments (Opens Kanban board view first) -->
+    <record id="action_it_department" model="ir.actions.act_window">
+        <field name="name">IT Support Departments</field>
+        <field name="res_model">it.department</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Define your first IT Support Department!
+            </p>
+            <p>
+                Each department represents a specific support team (e.g. Hardware Support, ERP Support) and assigns tickets dynamically to its members.
+            </p>
+        </field>
+    </record>
+</odoo>

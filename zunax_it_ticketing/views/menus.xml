@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Root Menu -->
+    <menuitem id="menu_it_ticketing_root" name="IT Support" sequence="15" web_icon="zunax_it_ticketing,static/description/icon.png"/>
+
+    <!-- Main Menus -->
+    <menuitem id="menu_it_overview" name="Overview / Boards" parent="menu_it_ticketing_root" action="action_it_department" sequence="5"/>
+    <menuitem id="menu_it_tickets" name="Tickets" parent="menu_it_ticketing_root" action="action_it_ticket" sequence="10"/>
+    <menuitem id="menu_it_report" name="Reporting" parent="menu_it_ticketing_root" action="action_it_ticket_report" sequence="30" groups="group_it_support_manager"/>
+
+    <!-- Configuration Menu & Submenus -->
+    <menuitem id="menu_it_config" name="Configuration" parent="menu_it_ticketing_root" sequence="50" groups="group_it_support_manager"/>
+    <menuitem id="menu_it_departments" name="IT Departments" parent="menu_it_config" action="action_it_department" sequence="10"/>
+    <menuitem id="menu_it_ticket_subjects" name="Predefined Subjects" parent="menu_it_config" action="action_it_ticket_subject" sequence="15"/>
+    <menuitem id="menu_it_cancellation_reasons" name="Cancellation Reasons" parent="menu_it_config" action="action_it_cancellation_reason" sequence="20"/>
+</odoo>

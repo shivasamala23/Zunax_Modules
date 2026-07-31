@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Sequence for IT Ticket Numbers (IT-00001, etc.) -->
+        <record id="it_ticket_sequence" model="ir.sequence">
+            <field name="name">IT Ticket Sequence</field>
+            <field name="code">it.ticket.sequence</field>
+            <field name="prefix">IT-</field>
+            <field name="padding">5</field>
+            <field name="number_next">1</field>
+            <field name="number_increment">1</field>
+            <field name="company_id" eval="False"/>
+        </record>
+
+        <!-- Email Template for Ticket Resolution -->
+        <record id="email_template_ticket_resolved" model="mail.template">
+            <field name="name">IT Ticket: Resolved Notification</field>
+            <field name="model_id" ref="zunax_it_ticketing.model_it_ticket"/>
+            <field name="subject">IT Ticket Resolved: {{ object.ticket_number }} - {{ object.name }}</field>
+            <field name="email_to">{{ object.email or object.partner_id.email }}</field>
+            <field name="description">Sent to employees when their IT Ticket is resolved.</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px; font-family: Arial, sans-serif; font-size: 14px;">
+                    <p>Dear <t t-out="object.partner_id.name or 'Employee'"/>,</p>
+                    <p>We are pleased to inform you that your IT ticket <strong><t t-out="object.ticket_number"/></strong> regarding <strong>"<t t-out="object.name"/>"</strong> has been marked as <strong>Resolved</strong>.</p>
+                    
+                    <p><strong>Resolution details:</strong></p>
+                    <div style="background-color: #f6f6f6; border-left: 4px solid #714B67; padding: 10px; margin: 10px 0px;">
+                        <t t-out="object.resolution_notes or 'No resolution notes provided.'"/>
+                    </div>
+                    
+                    <p>If you believe this issue has not been fully fixed, or if you need additional help, feel free to reply to this email or visit your portal dashboard.</p>
+                    
+                    <br/>
+                    <p>Best regards,</p>
+                    <p><strong>IT Support Services</strong></p>
+                </div>
+            </field>
+        </record>
+
+        <!-- Email Template to notify Support Staff and Managers of new ticket -->
+        <record id="email_template_ticket_created_staff" model="mail.template">
+            <field name="name">IT Ticket: Staff Creation Alert</field>
+            <field name="model_id" ref="zunax_it_ticketing.model_it_ticket"/>
+            <field name="subject">New IT Ticket Raised: {{ object.ticket_number }} - {{ object.name }}</field>
+            <field name="email_to">{{ object._get_staff_manager_emails() }}</field>
+            <field name="description">Sent to support staff and managers when a new IT Ticket is created.</field>
+            <field name="body_html" type="html">
+                <div style="margin: 0px; padding: 0px; font-family: Arial, sans-serif; font-size: 14px;">
+                    <p>Hello Support Team,</p>
+                    <p>A new IT ticket has been raised and assigned:</p>
+                    <ul>
+                        <li><strong>Ticket:</strong> <t t-out="object.ticket_number"/> - <t t-out="object.name"/></li>
+                        <li><strong>Reporter:</strong> <t t-out="object.partner_id.name"/> (<t t-out="object.email"/>)</li>
+                        <li><strong>IT Department:</strong> <t t-out="object.department_id.name"/></li>
+                        <li><strong>Assigned Representative:</strong> <t t-out="object.assigned_user_id.name or 'Unassigned'"/></li>
+                        <li><strong>Priority:</strong> <t t-out="dict(object._fields['priority'].selection).get(object.priority)"/></li>
+                    </ul>
+                    <p>Please review and handle the ticket appropriately.</p>
+                </div>
+            </field>
+        </record>
+    </data>
+</odoo>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Cancellation Wizard Form View -->
+    <record id="view_it_ticket_cancel_wizard_form" model="ir.ui.view">
+        <field name="name">it.ticket.cancel.wizard.form</field>
+        <field name="model">it.ticket.cancel.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Cancel Ticket">
+                <group>
+                    <field name="ticket_id" readonly="1" invisible="1"/>
+                    <field name="reason_id" options="{'no_create': True, 'no_open': True}"/>
+                    <field name="details" placeholder="State any additional information or comments here..."/>
+                </group>
+                <footer>
+                    <button name="action_cancel" string="Confirm Cancellation" type="object" class="btn-danger"/>
+                    <button string="Discard" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Action to open Cancellation Wizard -->
+    <record id="action_it_ticket_cancel_wizard" model="ir.actions.act_window">
+        <field name="name">Cancel Ticket</field>
+        <field name="res_model">it.ticket.cancel.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>

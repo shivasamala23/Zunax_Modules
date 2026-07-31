@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- IT Ticket Form View -->
+    <record id="view_it_ticket_form" model="ir.ui.view">
+        <field name="name">it.ticket.form</field>
+        <field name="model">it.ticket</field>
+        <field name="arch" type="xml">
+            <form string="IT Support Ticket">
+                <header>
+                    <button name="action_submit" string="Submit Ticket" type="object" class="oe_highlight" invisible="stage != 'draft'"/>
+                    <button name="action_start_progress" string="Start Progress" type="object" class="oe_highlight" invisible="stage != 'new'" groups="zunax_it_ticketing.group_it_support_staff"/>
+                    <button name="action_resolve" string="Resolve Ticket" type="object" class="oe_highlight" invisible="stage not in ('new', 'in_progress')" groups="zunax_it_ticketing.group_it_support_staff"/>
+                    <button name="%(zunax_it_ticketing.action_it_ticket_cancel_wizard)d" string="Cancel Ticket" type="action" class="btn-danger" invisible="stage != 'new'"/>
+                    
+                    <field name="stage" widget="statusbar" statusbar_visible="draft,new,in_progress,resolved,cancelled"/>
+                </header>
+                <sheet>
+                    <field name="is_support_staff" invisible="1"/>
+                    <widget name="web_ribbon" title="New" bg_color="bg-success" invisible="stage != 'new'"/>
+                    <widget name="web_ribbon" title="Cancelled" bg_color="bg-danger" invisible="stage != 'cancelled'"/>
+                    <div class="oe_title">
+                        <h1>
+                            <span invisible="stage != 'draft'" class="text-muted">Draft Ticket</span>
+                            <field name="ticket_number" readonly="1" invisible="stage == 'draft'"/>
+                        </h1>
+                        <group>
+                            <field name="subject_id" options="{'no_create': True, 'no_open': True}" required="1" readonly="stage != 'draft'"/>
+                            <field name="name" placeholder="Describe the issue briefly..." invisible="not is_support_staff"/>
+                        </group>
+                    </div>
+                    <group>
+                        <group string="Reporter Information">
+                            <field name="employee_id" options="{'no_create': True}" readonly="not is_support_staff"/>
+                            <field name="partner_id" options="{'no_create': True}" readonly="not is_support_staff"/>
+                            <field name="email" readonly="not is_support_staff"/>
+                            <field name="phone" readonly="not is_support_staff"/>
+                        </group>
+                        <group string="Routing &amp; Assignment">
+                            <field name="department_id" options="{'no_create_edit': True}" readonly="not is_support_staff"/>
+                            <field name="assigned_user_id" options="{'no_create_edit': True}" invisible="not is_support_staff and stage == 'new'"/>
+                            <field name="priority" widget="priority"/>
+                        </group>
+                    </group>
+                    <group invisible="stage != 'cancelled'">
+                        <field name="cancellation_reason" readonly="1"/>
+                    </group>
+                    <notebook>
+                        <page string="Issue Details" name="description">
+                            <field name="description" placeholder="Provide full details, error logs, or steps to reproduce the issue..."/>
+                        </page>
+                        <page string="Resolution Notes" name="resolution">
+                            <group>
+                                <field name="resolution_notes" placeholder="Explain how the issue was fixed..."/>
+                            </group>
+                        </page>
+                    </notebook>
+                </sheet>
+                <!-- Odoo Chatter Component -->
+                <chatter>
+                    <field name="message_follower_ids"/>
+                    <field name="activity_ids"/>
+                    <field name="message_ids"/>
+                </chatter>
+            </form>
+        </field>
+    </record>
+
+    <!-- IT Ticket List View -->
+    <record id="view_it_ticket_list" model="ir.ui.view">
+        <field name="name">it.ticket.list</field>
+        <field name="model">it.ticket</field>
+        <field name="arch" type="xml">
+            <list string="IT Tickets" decoration-success="stage == 'new'" decoration-danger="stage == 'cancelled'" decoration-warning="stage == 'in_progress'" decoration-info="stage == 'resolved'" decoration-muted="stage == 'draft'">
+                <field name="ticket_number"/>
+                <field name="name"/>
+                <field name="employee_id"/>
+                <field name="department_id"/>
+                <field name="assigned_user_id"/>
+                <field name="priority" widget="priority"/>
+                <field name="stage"/>
+                <field name="create_date" string="Created On"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- IT Ticket Kanban View -->
+    <record id="view_it_ticket_kanban" model="ir.ui.view">
+        <field name="name">it.ticket.kanban</field>
+        <field name="model">it.ticket</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="stage" class="o_kanban_small_column" quick_create="false">
+                <field name="id"/>
+                <field name="ticket_number"/>
+                <field name="name"/>
+                <field name="employee_id"/>
+                <field name="assigned_user_id"/>
+                <field name="priority"/>
+                <field name="stage"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex flex-column h-100 justify-content-between">
+                            <div>
+                                <span class="fw-bold fs-5 text-muted"><t t-esc="record.ticket_number.value"/></span>
+                                <h4 class="mt-1"><field name="name"/></h4>
+                                <div class="text-muted small">
+                                    <span>Dept: </span><field name="department_id"/>
+                                </div>
+                                <div class="text-muted small" t-if="record.employee_id.raw_value">
+                                    <span>Raised by: </span><field name="employee_id"/>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center justify-content-between mt-3">
+                                <field name="priority" widget="priority"/>
+                                <field name="assigned_user_id" widget="many2one_avatar_user" class="ms-auto"/>
+                            </div>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- IT Ticket Search & Filter View -->
+    <record id="view_it_ticket_search" model="ir.ui.view">
+        <field name="name">it.ticket.search</field>
+        <field name="model">it.ticket</field>
+        <field name="arch" type="xml">
+            <search string="Search IT Tickets">
+                <field name="name" string="Subject/Number" filter_domain="['|', ('name', 'ilike', self), ('ticket_number', 'ilike', self)]"/>
+                <field name="employee_id"/>
+                <field name="department_id"/>
+                <field name="assigned_user_id"/>
+                
+                <filter string="My Assigned Tickets" name="my_tickets" domain="[('assigned_user_id', '=', uid)]"/>
+                <separator/>
+                <filter string="New" name="stage_new" domain="[('stage', '=', 'new')]"/>
+                <filter string="In Progress" name="stage_in_progress" domain="[('stage', '=', 'in_progress')]"/>
+                <filter string="Resolved" name="stage_resolved" domain="[('stage', '=', 'resolved')]"/>
+                <filter string="Cancelled" name="stage_cancelled" domain="[('stage', '=', 'cancelled')]"/>
+                <separator/>
+                <filter string="High &amp; Urgent Priority" name="high_priority" domain="[('priority', 'in', ('2', '3'))]"/>
+                
+                <group expand="0" string="Group By">
+                    <filter string="IT Department" name="group_by_department" context="{'group_by': 'department_id'}"/>
+                    <filter string="Assigned To" name="group_by_assignee" context="{'group_by': 'assigned_user_id'}"/>
+                    <filter string="Status" name="group_by_stage" context="{'group_by': 'stage'}"/>
+                    <filter string="Employee" name="group_by_employee" context="{'group_by': 'employee_id'}"/>
+                    <filter string="Created Month" name="group_by_created" context="{'group_by': 'create_date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- IT Ticket Pivot View -->
+    <record id="view_it_ticket_pivot" model="ir.ui.view">
+        <field name="name">it.ticket.pivot</field>
+        <field name="model">it.ticket</field>
+        <field name="arch" type="xml">
+            <pivot string="IT Support Analysis" sample="1">
+                <field name="subject_id" type="row"/>
+                <field name="stage" type="col"/>
+                <field name="resolution_time" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+    <!-- IT Ticket Graph View -->
+    <record id="view_it_ticket_graph" model="ir.ui.view">
+        <field name="name">it.ticket.graph</field>
+        <field name="model">it.ticket</field>
+        <field name="arch" type="xml">
+            <graph string="IT Support Analysis" type="bar" sample="1">
+                <field name="subject_id" type="row"/>
+                <field name="stage" type="col"/>
+                <field name="resolution_time" type="measure"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- Action for Reporting -->
+    <record id="action_it_ticket_report" model="ir.actions.act_window">
+        <field name="name">IT Support Analysis</field>
+        <field name="res_model">it.ticket</field>
+        <field name="view_mode">pivot,graph</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No tickets for analysis yet.
+            </p>
+            <p>
+                As tickets are submitted and resolved, this dashboard will show the average resolution times and counts by subject, department, and status.
+            </p>
+        </field>
+    </record>
+
+    <!-- Action for IT Tickets -->
+    <record id="action_it_ticket" model="ir.actions.act_window">
+        <field name="name">IT Support Tickets</field>
+        <field name="res_model">it.ticket</field>
+        <field name="view_mode">kanban,list,form</field>
+        <field name="search_view_id" ref="view_it_ticket_search"/>
+        <field name="context">{'search_default_my_tickets': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                No IT tickets found.
+            </p>
+            <p>
+                Employees can submit tickets via email, their customer portal, or website form. Backend support staff can manage their progress and assign them here.
+            </p>
+        </field>
+    </record>
+</odoo>
+

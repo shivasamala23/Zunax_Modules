@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Predefined Subjects Form View -->
+    <record id="view_it_ticket_subject_form" model="ir.ui.view">
+        <field name="name">it.ticket.subject.form</field>
+        <field name="model">it.ticket.subject</field>
+        <field name="arch" type="xml">
+            <form string="Predefined Subject">
+                <sheet>
+                    <group>
+                        <field name="name" placeholder="e.g. Outlook / Email Not Working"/>
+                        <field name="department_id" options="{'no_create': True}"/>
+                        <field name="active" widget="boolean_toggle"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Predefined Subjects List View -->
+    <record id="view_it_ticket_subject_tree" model="ir.ui.view">
+        <field name="name">it.ticket.subject.list</field>
+        <field name="model">it.ticket.subject</field>
+        <field name="arch" type="xml">
+            <list string="Predefined Subjects" editable="bottom">
+                <field name="name"/>
+                <field name="department_id" options="{'no_create': True}"/>
+                <field name="active" widget="boolean_toggle"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- Action for Predefined Subjects -->
+    <record id="action_it_ticket_subject" model="ir.actions.act_window">
+        <field name="name">Predefined Subjects</field>
+        <field name="res_model">it.ticket.subject</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Add a Predefined Subject!
+            </p>
+            <p>
+                Predefine subjects and map them to their corresponding support departments. Employees will select these subjects when raising a ticket.
+            </p>
+        </field>
+    </record>
+</odoo>
+
